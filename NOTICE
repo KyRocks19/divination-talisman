@@ -1,0 +1,37 @@
+Divination Talisman: credits and what each licence covers
+
+This app is the phone edition of Divination Station (https://github.com/KyRocks19/divination-station-takeoff), and its
+notices are copied from that repository's NOTICE file for the parts this app uses.
+
+The GNU Affero General Public License version 3 (the LICENSE file) covers the program's code only. The text and the
+pictures below keep the terms stated here.
+
+CARD PICTURES (assets/cards, 78 files)
+  What: the Pixie-Smith tarot deck (Pamela Colman Smith's 1909 drawings; "Pixie" was her nickname), scanned from Wikipedia and cleaned up slightly, resized to
+  300 x 527 px with a small black border.
+  Original art: Pamela Colman Smith, for the deck published in 1909. The cleaner of the scans judges the
+  card illustrations to be in the public domain (under Australian law) and asks users to check their own
+  country.
+  Scans and clean-up: Luciella Elisabeth Scarlett (luciellaes),
+  https://luciellaes.itch.io/rider-waite-smith-tarot-cards-cc0 . Her page releases the card-back design under
+  CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/); credit is optional and is given here with
+  thanks. She asks that the cards are not sold as they are, and that is respected: they are used inside an app
+  with its own work added.
+  Found through: tarotjs by berkough, https://berkough.itch.io/tarotjs (the tarotjs code is under the BSD
+  3-clause licence; none of that code is used in this app, and its licence is not what permits the pictures).
+  Public-domain research (2026-10-18, web sources, not legal advice): the 1909 art is public domain in the
+  United States (published before 1929; US copyright is federal, so a state such as Illinois adds nothing) and
+  in countries with a life-plus-70 term, because Smith died in 1951 (public domain there from 1 January 2022).
+  Israel's term is life plus 70 under its 2007 law (it was life plus 50 before), so the art is out of copyright
+  there either way. The later US Games Systems edition (1971) is not covered by this: only its new material is
+  protected, and the pictures here are the 1909 art. The owner believes the pictures are public domain in
+
+TAROT CARD TEXT (src/core/cards.ts)
+
+  The card names, keywords and the upright and reversed descriptions are the own work of Felix G and Kylie B.
+
+
+
+LIBRARIES
+
+  Expo, React Native and React, under the MIT licence; their licence texts are inside node_modules.
