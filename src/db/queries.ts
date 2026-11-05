@@ -36,6 +36,8 @@ export interface ReadingRow {
   question: string;
   spread_id: string | null;
   spread_name: string | null;
+  /** The oracle deck a pull was made with; null for tarot, and after the deck is deleted. */
+  deck_id: number | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -48,6 +50,8 @@ export interface PieceRow {
   position_name: string;
   piece_id: string;
   reversed: number;
+  /** What the piece was called when drawn (migration 2); null on readings made before it. */
+  piece_name: string | null;
 }
 
 export interface SensedRow {
@@ -66,6 +70,7 @@ export interface NewReading {
   question: string;
   spreadId: string | null;
   spreadName: string | null;
+  deckId?: number | null;
   pieces: DrawnPiece[];
   /** What the person sensed before the reveal. `null` means the step was turned off; `skipped` means they set it aside this time. */
   sensed: { guess: string; skipped: boolean; confidence: Confidence | null; sealedAt: string } | null;
@@ -77,14 +82,14 @@ export async function createReading(db: Db, r: NewReading): Promise<number> {
   await db.withTransactionAsync(async () => {
     const t = now();
     const res = await db.runAsync(
-      "INSERT INTO readings (tool, question, spread_id, spread_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [r.tool, r.question.trim(), r.spreadId, r.spreadName, t, t],
+      "INSERT INTO readings (tool, question, spread_id, spread_name, deck_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [r.tool, r.question.trim(), r.spreadId, r.spreadName, r.deckId ?? null, t, t],
     );
     id = res.lastInsertRowId;
     for (const p of r.pieces) {
       await db.runAsync(
-        "INSERT INTO reading_pieces (reading_id, position, position_name, piece_id, reversed) VALUES (?, ?, ?, ?, ?)",
-        [id, p.position, p.positionName, p.pieceId, p.reversed ? 1 : 0],
+        "INSERT INTO reading_pieces (reading_id, position, position_name, piece_id, piece_name, reversed) VALUES (?, ?, ?, ?, ?, ?)",
+        [id, p.position, p.positionName, p.pieceId, p.pieceName, p.reversed ? 1 : 0],
       );
     }
     if (r.sensed) {
@@ -97,8 +102,13 @@ export async function createReading(db: Db, r: NewReading): Promise<number> {
   return id;
 }
 
+/** Joins piece names in a list row: a character nobody types, so a name with a comma stays whole. */
+export const PIECE_NAME_SEPARATOR = String.fromCharCode(31);
+
 export interface ReadingListItem extends ReadingRow {
   piece_ids: string | null;
+  /** The pieces' names when drawn, joined by PIECE_NAME_SEPARATOR, in position order. */
+  piece_names: string | null;
   guess: string | null;
   skipped: number | null;
   fit: Fit | null;
@@ -118,7 +128,8 @@ export async function listReadings(db: Db, search = "", limit = 200): Promise<Re
   params.push(limit);
   return db.getAllAsync<ReadingListItem>(
     `SELECT r.*, s.guess, s.skipped, s.fit,
-       (SELECT group_concat(piece_id, ',') FROM (SELECT piece_id FROM reading_pieces p WHERE p.reading_id = r.id ORDER BY position)) AS piece_ids
+       (SELECT group_concat(piece_id, ',') FROM (SELECT piece_id FROM reading_pieces p WHERE p.reading_id = r.id ORDER BY position)) AS piece_ids,
+       (SELECT group_concat(coalesce(piece_name, ''), char(31)) FROM (SELECT piece_name FROM reading_pieces p WHERE p.reading_id = r.id ORDER BY position)) AS piece_names
      FROM readings r LEFT JOIN sensed_first s ON s.reading_id = r.id
      ${where}
      ORDER BY r.created_at DESC, r.id DESC LIMIT ?`,
@@ -285,9 +296,11 @@ export interface Settings {
   reversals: boolean;
   /** When the last backup file was made, or null. */
   lastBackupAt: string | null;
+  /** New oracle photos: a copy inside the app, or a link to the photo in the phone's photo library. */
+  photoMode: "copy" | "link";
 }
 
-export const DEFAULT_SETTINGS: Settings = { lock: false, senseFirst: true, reversals: true, lastBackupAt: null };
+export const DEFAULT_SETTINGS: Settings = { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy" };
 
 export async function getSettings(db: Db): Promise<Settings> {
   const rows = await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM settings", []);
@@ -295,6 +308,7 @@ export async function getSettings(db: Db): Promise<Settings> {
   for (const { key, value } of rows) {
     if (key === "lock" || key === "senseFirst" || key === "reversals") s[key] = value === "1";
     if (key === "lastBackupAt") s.lastBackupAt = value || null;
+    if (key === "photoMode") s.photoMode = value === "link" ? "link" : "copy";
   }
   return s;
 }
@@ -304,15 +318,24 @@ export async function setSetting<K extends keyof Settings>(db: Db, key: K, value
   await db.runAsync("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [key, String(v)]);
 }
 
+export interface PatternPiece {
+  reading_id: number;
+  tool: string;
+  piece_id: string;
+  piece_name: string | null;
+  reversed: number;
+  created_at: string;
+}
+
 // ── Rows for Patterns ───────────────────────────────────────────────────────────────────────────────
 
 export async function patternRows(db: Db): Promise<{
-  pieces: { reading_id: number; piece_id: string; reversed: number; created_at: string }[];
+  pieces: PatternPiece[];
   sensed: { sealed_at: string; skipped: number; confidence: Confidence | null; fit: Fit | null }[];
   readings: number;
 }> {
-  const pieces = await db.getAllAsync<{ reading_id: number; piece_id: string; reversed: number; created_at: string }>(
-    "SELECT p.reading_id, p.piece_id, p.reversed, r.created_at FROM reading_pieces p JOIN readings r ON r.id = p.reading_id WHERE r.tool = 'tarot'",
+  const pieces = await db.getAllAsync<PatternPiece>(
+    "SELECT p.reading_id, r.tool, p.piece_id, p.piece_name, p.reversed, r.created_at FROM reading_pieces p JOIN readings r ON r.id = p.reading_id",
     [],
   );
   const sensed = await db.getAllAsync<{ sealed_at: string; skipped: number; confidence: Confidence | null; fit: Fit | null }>(

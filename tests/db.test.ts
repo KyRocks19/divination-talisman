@@ -21,9 +21,9 @@ const tarot = (question = "What do I need to see?") => ({
   spreadId: "past-present-future",
   spreadName: "Past | Present | Future",
   pieces: [
-    { position: 0, positionName: "Past", pieceId: "major-0", reversed: false },
-    { position: 1, positionName: "Present", pieceId: "cups-ace", reversed: true },
-    { position: 2, positionName: "Future", pieceId: "swords-queen", reversed: false },
+    { position: 0, positionName: "Past", pieceId: "major-0", pieceName: "The Fool", reversed: false },
+    { position: 1, positionName: "Present", pieceId: "cups-ace", pieceName: "Ace of Cups", reversed: true },
+    { position: 2, positionName: "Future", pieceId: "swords-queen", pieceName: "Queen of Swords", reversed: false },
   ],
   sensed: { guess: "Something ending, something starting", skipped: false, confidence: 4 as const, sealedAt: "2026-11-05T09:00:00.000Z" },
 });
@@ -131,11 +131,11 @@ test("changing a meaning keeps the old words in its history; emptying it deletes
 
 test("settings start from the defaults and keep what is set", async () => {
   const db = await fresh();
-  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null });
+  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy" });
   await setSetting(db, "lock", true);
   await setSetting(db, "senseFirst", false);
   await setSetting(db, "lastBackupAt", "2026-11-05T10:00:00Z");
-  assert.deepEqual(await getSettings(db), { lock: true, senseFirst: false, reversals: true, lastBackupAt: "2026-11-05T10:00:00Z" });
+  assert.deepEqual(await getSettings(db), { lock: true, senseFirst: false, reversals: true, lastBackupAt: "2026-11-05T10:00:00Z", photoMode: "copy" });
 });
 
 test("a backup restores to exactly the same data", async () => {
@@ -183,7 +183,7 @@ test("a damaged or foreign backup is refused in plain words, and a failed restor
 });
 
 test("backup file names carry the phone's local date and time", () => {
-  assert.equal(backupFileName(new Date(2026, 10, 5, 9, 7)), "divination-talisman-2026-11-05-0907.json");
+  assert.equal(backupFileName(new Date(2026, 10, 5, 9, 7)), "divination-talisman-2026-11-05-0907.zip");
 });
 
 test("pattern rows hold tarot pieces and every sensed-first row", async () => {

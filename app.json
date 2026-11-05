@@ -36,7 +36,26 @@
           "faceIDPermission": "Face ID unlocks your readings when you turn on the lock."
         }
       ],
-      "./plugins/with-release-signing"
+      "./plugins/with-release-signing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos for the oracle cards you make.",
+          "cameraPermission": "Take photos of the oracle cards you make.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Link your oracle cards to photos in your library, without keeping a second copy.",
+          "savePhotosPermission": "Save the card photos you take to your library, so the card can link to them.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
+      "expo-image"
     ],
     "scheme": "divination-talisman",
     "backgroundColor": "#0d0d1a"

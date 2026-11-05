@@ -80,8 +80,12 @@ export default function Patterns() {
         <Muted>A card is listed here once it has come up in two or more readings.</Muted>
       ) : (
         data.cards.slice(0, 20).map((c) => (
-          <Card key={c.pieceId} onPress={() => router.push(`/card/${c.pieceId}`)} accessibilityHint="Opens the card and your meanings">
-            <Strong>{getCardById(c.pieceId)?.name ?? c.pieceId}</Strong>
+          <Card
+            key={`${c.tool}:${c.pieceId}`}
+            onPress={() => router.push(c.tool === "tarot" ? `/card/${c.pieceId}` : { pathname: "/oracle/card", params: { id: c.pieceId } })}
+            accessibilityHint="Opens the card and your meanings"
+          >
+            <Strong>{(c.tool === "tarot" ? getCardById(c.pieceId)?.name : c.name) ?? c.name ?? "A card"}</Strong>
             <Muted>
               In {c.readings} readings{c.reversed ? `, reversed in ${c.reversed}` : ""} · last on {dayText(c.lastSeen)}
             </Muted>

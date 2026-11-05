@@ -71,7 +71,7 @@ test("recurring cards count readings, not repeats inside one reading", () => {
     { reading_id: 2, piece_id: "major-0", reversed: 1, created_at: "2026-11-03" },
     { reading_id: 3, piece_id: "cups-ace", reversed: 0, created_at: "2026-11-04" },
   ];
-  assert.deepEqual(recurringCards(rows), [{ pieceId: "major-0", readings: 2, reversed: 1, lastSeen: "2026-11-03" }]);
+  assert.deepEqual(recurringCards(rows), [{ tool: "tarot", pieceId: "major-0", name: null, readings: 2, reversed: 1, lastSeen: "2026-11-03" }]);
 });
 
 test("the sensed-first summary counts plainly and holds back an average until there are five answers", () => {

@@ -4,28 +4,39 @@
 import { FITS, confidenceVsFit, overallFit, type Confidence, type ConfidenceRow, type Fit } from "./guess-core";
 
 export interface CardCount {
+  tool: string;
   pieceId: string;
+  /** The name it had the last time it came up. */
+  name: string | null;
   /** In how many different readings it came up. */
   readings: number;
   reversed: number;
   lastSeen: string;
 }
 
-/** Cards that came up in two or more different readings, most often first. */
-export function recurringCards(rows: { reading_id: number; piece_id: string; reversed: number; created_at: string }[], min = 2): CardCount[] {
-  const by = new Map<string, { readings: Set<number>; reversed: number; lastSeen: string }>();
+/** Cards that came up in two or more different readings, most often first. A tarot card and an oracle card never mix. */
+export function recurringCards(
+  rows: { reading_id: number; tool?: string; piece_id: string; piece_name?: string | null; reversed: number; created_at: string }[],
+  min = 2,
+): CardCount[] {
+  const by = new Map<string, { tool: string; pieceId: string; name: string | null; readings: Set<number>; reversed: number; lastSeen: string }>();
   for (const r of rows) {
-    const c = by.get(r.piece_id) ?? { readings: new Set<number>(), reversed: 0, lastSeen: r.created_at };
+    const tool = r.tool ?? "tarot";
+    const key = `${tool}:${r.piece_id}`;
+    const c = by.get(key) ?? { tool, pieceId: r.piece_id, name: null, readings: new Set<number>(), reversed: 0, lastSeen: r.created_at };
     if (!c.readings.has(r.reading_id)) {
       c.readings.add(r.reading_id);
       if (r.reversed) c.reversed += 1;
     }
-    if (r.created_at > c.lastSeen) c.lastSeen = r.created_at;
-    by.set(r.piece_id, c);
+    if (r.created_at >= c.lastSeen) {
+      c.lastSeen = r.created_at;
+      if (r.piece_name) c.name = r.piece_name;
+    } else if (!c.name && r.piece_name) c.name = r.piece_name;
+    by.set(key, c);
   }
-  return [...by.entries()]
-    .filter(([, c]) => c.readings.size >= min)
-    .map(([pieceId, c]) => ({ pieceId, readings: c.readings.size, reversed: c.reversed, lastSeen: c.lastSeen }))
+  return [...by.values()]
+    .filter((c) => c.readings.size >= min)
+    .map((c) => ({ tool: c.tool, pieceId: c.pieceId, name: c.name, readings: c.readings.size, reversed: c.reversed, lastSeen: c.lastSeen }))
     .sort((a, b) => b.readings - a.readings || b.lastSeen.localeCompare(a.lastSeen) || a.pieceId.localeCompare(b.pieceId));
 }
 
