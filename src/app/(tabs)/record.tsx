@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { getCardById } from "../../core/cards";
-import { listReadings, type ReadingListItem } from "../../db/queries";
+import { listReadings, PIECE_NAME_SEPARATOR, type ReadingListItem } from "../../db/queries";
 import { dayText } from "../../lib/dates";
 import { Body, Button, Card, Field, Muted, Screen, Strong } from "../../ui/kit";
 
@@ -41,10 +41,9 @@ export default function Record() {
         <Muted>{search.trim() ? "No reading has those words." : "Your readings will be listed here. They are kept only on this phone."}</Muted>
       )}
       {rows?.map((r) => {
-        const names = (r.piece_ids ?? "")
-          .split(",")
-          .filter(Boolean)
-          .map((id) => getCardById(id)?.name ?? id);
+        const ids = (r.piece_ids ?? "").split(",").filter(Boolean);
+        const kept = (r.piece_names ?? "").split(PIECE_NAME_SEPARATOR);
+        const names = ids.map((id, i) => (r.tool === "tarot" ? getCardById(id)?.name : undefined) ?? (kept[i] || "A card"));
         return (
           <Card key={r.id} onPress={() => router.push(`/reading/${r.id}`)} accessibilityHint="Opens the reading">
             <Strong>{r.question || r.spread_name || "Reading"}</Strong>

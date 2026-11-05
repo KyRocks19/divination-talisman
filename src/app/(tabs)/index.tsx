@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { getCardById } from "../../core/cards";
-import { getSettings, listReadings, type ReadingListItem } from "../../db/queries";
+import { getSettings, listReadings, PIECE_NAME_SEPARATOR, type ReadingListItem } from "../../db/queries";
 import { dayText, daysSince } from "../../lib/dates";
 import { Body, Button, Card, Muted, Screen, SectionLabel, Strong, Title } from "../../ui/kit";
 
@@ -56,13 +56,13 @@ export default function Today() {
           <SectionLabel>Ready to look back on</SectionLabel>
           <Muted>You wrote what you sensed before these readings. When you know how things went, you can say how well it fitted.</Muted>
           {waiting.map((r) => {
-            const first = r.piece_ids?.split(",")[0];
+            const first = r.tool === "tarot" ? getCardById(r.piece_ids?.split(",")[0] ?? "")?.name : r.piece_names?.split(PIECE_NAME_SEPARATOR)[0];
             return (
               <Card key={r.id} onPress={() => router.push(`/reading/${r.id}`)} accessibilityHint="Opens the reading">
                 <Strong>{r.question || r.spread_name || "Reading"}</Strong>
                 <Muted>
                   {dayText(r.created_at)}
-                  {first ? ` · ${getCardById(first)?.name ?? ""}` : ""}
+                  {first ? ` · ${first}` : ""}
                 </Muted>
                 <Body numberOfLines={2}>You sensed: {r.guess}</Body>
               </Card>

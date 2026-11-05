@@ -16,6 +16,9 @@ import {
 } from "../../db/queries";
 import { dayText, dayTimeText } from "../../lib/dates";
 import { CardImage } from "../../ui/CardImage";
+import { OracleImage } from "../../ui/OracleImage";
+import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracle";
+import type { FieldDef } from "../../core/oracle";
 import { Body, Button, Card, ChoiceRow, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
 
@@ -26,12 +29,18 @@ export default function ReadingScreen() {
   const readingId = Number(id);
   const [data, setData] = useState<FullReading | null | undefined>(undefined);
   const [own, setOwn] = useState<Map<string, string>>(new Map());
+  const [oracle, setOracle] = useState<OracleInfo | null>(null);
   const [revealed, setRevealed] = useState<Set<number> | null>(null);
 
   const load = useCallback(async () => {
     const r = await getReading(db, readingId);
     setData(r);
-    setOwn(await allMeanings(db, "tarot"));
+    setOwn(await allMeanings(db, r?.reading.tool ?? "tarot"));
+    if (r?.reading.tool === ORACLE_TOOL) {
+      const cards = await cardsById(db, r.pieces.map((p) => Number(p.piece_id)));
+      const deck = r.reading.deck_id ? await getDeck(db, r.reading.deck_id) : null;
+      setOracle({ cards, fields: deck?.fields ?? [], deckName: deck?.name ?? null });
+    }
     if (r) setRevealed((prev) => prev ?? new Set(reveal === "1" ? [] : r.pieces.map((p) => p.position)));
   }, [db, readingId, reveal]);
 
@@ -67,7 +76,10 @@ export default function ReadingScreen() {
     <Screen>
       <View style={{ gap: space.xs }}>
         <Title>{reading.question || reading.spread_name || "Reading"}</Title>
-        <Muted>{dayTimeText(reading.created_at)}</Muted>
+        <Muted>
+          {dayTimeText(reading.created_at)}
+          {oracle?.deckName ? ` · ${oracle.deckName}` : ""}
+        </Muted>
       </View>
 
       {sensed && !sensed.skipped && (
@@ -81,7 +93,7 @@ export default function ReadingScreen() {
         </Card>
       )}
 
-      <Pieces pieces={pieces} revealed={revealed} own={own} spreadId={reading.spread_id} onTurn={turnOver} />
+      <Pieces pieces={pieces} revealed={revealed} own={own} oracle={oracle} spreadId={reading.spread_id} onTurn={turnOver} />
 
       {!allShown && (
         <Button
@@ -99,17 +111,31 @@ export default function ReadingScreen() {
           {sensed && !sensed.skipped && <LookBack readingId={reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={load} />}
           <Notes readingId={reading.id} initial={reading.notes} />
           <Journal readingId={reading.id} entries={journal} onChange={load} />
-          <ShareAndDelete data={data} />
+          <ShareAndDelete data={data} oracle={oracle} />
         </>
       )}
     </Screen>
   );
 }
 
-function Pieces({ pieces, revealed, own, spreadId, onTurn }: {
+/** For a pull from an oracle deck: its cards as they are now (a deleted card is missing), and the deck's fields. */
+interface OracleInfo {
+  cards: Map<number, OracleCard>;
+  fields: FieldDef[];
+  deckName: string | null;
+}
+
+/** The name to show for a piece: tarot from the deck, oracle as the card is called now, else as it was when drawn. */
+function pieceName(piece: PieceRow, oracle: OracleInfo | null): string {
+  if (oracle) return oracle.cards.get(Number(piece.piece_id))?.name ?? piece.piece_name ?? "A card you deleted";
+  return getCardById(piece.piece_id)?.name ?? piece.piece_name ?? piece.piece_id;
+}
+
+function Pieces({ pieces, revealed, own, oracle, spreadId, onTurn }: {
   pieces: PieceRow[];
   revealed: Set<number>;
   own: Map<string, string>;
+  oracle: OracleInfo | null;
   spreadId: string | null;
   onTurn: (position: number) => void;
 }) {
@@ -135,6 +161,7 @@ function Pieces({ pieces, revealed, own, spreadId, onTurn }: {
           width={itemWidth}
           shown={revealed.has(item.position)}
           own={own.get(`${item.piece_id}:${item.reversed ? "reversed" : "upright"}`)}
+          oracle={oracle}
           prompt={spread?.positions[item.position]?.description}
           color={spread?.positions[item.position]?.color}
           onTurn={() => onTurn(item.position)}
@@ -144,20 +171,23 @@ function Pieces({ pieces, revealed, own, spreadId, onTurn }: {
   );
 }
 
-function PieceCard({ piece, index, total, width, shown, own, prompt, color, onTurn }: {
+function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, color, onTurn }: {
   piece: PieceRow;
   index: number;
   total: number;
   width: number;
   shown: boolean;
   own?: string;
+  oracle: OracleInfo | null;
   prompt?: string;
   color?: string;
   onTurn: () => void;
 }) {
   const t = useTokens();
   const [stock, setStock] = useState(false);
-  const card = getCardById(piece.piece_id);
+  const card = oracle ? undefined : getCardById(piece.piece_id);
+  const oracleCard = oracle?.cards.get(Number(piece.piece_id));
+  const name = pieceName(piece, oracle);
   const reversed = !!piece.reversed;
   const pictureWidth = Math.min(width * 0.62, 220);
   const where = `${index + 1} of ${total}, ${piece.position_name}`;
@@ -175,35 +205,64 @@ function PieceCard({ piece, index, total, width, shown, own, prompt, color, onTu
         onPress={onTurn}
         disabled={shown}
         accessibilityRole={shown ? "image" : "button"}
-        accessibilityLabel={shown ? `${where}: ${card?.name}${reversed ? ", reversed" : ""}` : `${where}, face down`}
+        accessibilityLabel={shown ? `${where}: ${name}${reversed ? ", reversed" : ""}` : `${where}, face down`}
         accessibilityHint={shown ? undefined : "Turns the card over"}
         style={{ alignSelf: "center", paddingVertical: space.sm }}
       >
-        <CardImage cardId={piece.piece_id} reversed={reversed} faceDown={!shown} width={pictureWidth} />
+        {oracle ? (
+          <OracleImage
+            photo={oracleCard?.photo ? { photo: oracleCard.photo, linked: oracleCard.photoLinked } : null}
+            name={name}
+            width={pictureWidth}
+            faceDown={!shown}
+            reversed={reversed}
+          />
+        ) : (
+          <CardImage cardId={piece.piece_id} reversed={reversed} faceDown={!shown} width={pictureWidth} />
+        )}
       </Pressable>
       {!shown ? (
         <Muted style={{ textAlign: "center" }}>Tap to turn it over</Muted>
       ) : (
         <>
           <Strong style={{ textAlign: "center" }}>
-            {card?.name}
+            {name}
             {reversed ? " (reversed)" : ""}
           </Strong>
+          {oracleCard &&
+            oracle!.fields
+              .filter((f) => oracleCard.values[f.id])
+              .map((f) => (
+                <View key={f.id} style={{ gap: 2 }}>
+                  <SectionLabel>{f.name}</SectionLabel>
+                  <Body>{oracleCard.values[f.id]}</Body>
+                </View>
+              ))}
           {own ? (
             <View style={{ gap: 2 }}>
               <SectionLabel>Your meaning</SectionLabel>
               <Body>{own}</Body>
             </View>
           ) : (
-            <Muted>You have not written your own meaning for this card {reversed ? "reversed" : "upright"} yet.</Muted>
+            <Muted>You have not written your own meaning for this card{reversed ? " reversed" : oracle ? "" : " upright"} yet.</Muted>
           )}
-          <Button label={own ? "Change your meaning" : "Write your meaning"} variant="text" onPress={() => router.push(`/card/${piece.piece_id}`)} />
+          {(!oracle || oracleCard) && (
+            <Button
+              label={own ? "Change your meaning" : "Write your meaning"}
+              variant="text"
+              onPress={() =>
+                router.push(oracle ? { pathname: "/oracle/card", params: { id: piece.piece_id } } : `/card/${piece.piece_id}`)
+              }
+            />
+          )}
+          {!oracle && (
           <Button
             label={stock ? "Hide Pixie-Smith meanings" : "Pixie-Smith meanings"}
             variant="quiet"
             onPress={() => setStock(!stock)}
             accessibilityHint="Shows or hides the built-in text for this card"
           />
+          )}
           {stock && card && (
             <View style={{ backgroundColor: t.surfaceSunken, borderRadius: radius.control, padding: space.md, gap: space.xs }}>
               <Strong>{reversed ? card.reversedMeaning : card.uprightMeaning}</Strong>
@@ -310,7 +369,7 @@ function Journal({ readingId, entries, onChange }: { readingId: number; entries:
   );
 }
 
-function ShareAndDelete({ data }: { data: FullReading }) {
+function ShareAndDelete({ data, oracle }: { data: FullReading; oracle: OracleInfo | null }) {
   const db = useSQLiteContext();
   const [withQuestion, setWithQuestion] = useState(false);
   const [withNotes, setWithNotes] = useState(false);
@@ -332,7 +391,7 @@ function ShareAndDelete({ data }: { data: FullReading }) {
               question: reading.question,
               created_at: reading.created_at,
               notes: reading.notes,
-              cards: pieces.map((p) => ({ position: p.position_name, card_name: getCardById(p.piece_id)?.name ?? p.piece_id, reversed: !!p.reversed })),
+              cards: pieces.map((p) => ({ position: p.position_name, card_name: pieceName(p, oracle), reversed: !!p.reversed })),
               clarifiers: {},
             },
             [],

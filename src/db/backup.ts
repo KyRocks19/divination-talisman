@@ -1,6 +1,8 @@
-// Backup and restore: the whole database as one JSON file the person saves wherever they like (Files, iCloud Drive,
-// Google Drive, an email to themselves). It is the only copy outside the phone, so it must round-trip exactly.
+// Backup and restore: the whole database and every oracle picture as one zip file the person saves wherever they like
+// (Files, iCloud Drive, Google Drive, an email to themselves). It is the only copy outside the phone, so it must
+// round-trip exactly. The first version made a plain JSON file; those can still be restored.
 
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { MIGRATIONS, TABLES, type TableName } from "./schema";
 import type { Db, Param } from "./types";
 
@@ -12,12 +14,14 @@ export interface PhoneBackup {
   /** How many migrations the database that made this file had run. */
   schema: number;
   tables: Record<TableName, Record<string, Param>[]>;
+  /** In a zip backup: for each oracle card id with a picture, where its picture is inside the zip. */
+  photos?: Record<string, string>;
 }
 
-/** divination-talisman-2026-11-05-0930.json, in the phone's own time. */
-export function backupFileName(when: Date): string {
+/** divination-talisman-2026-11-05-0930.zip, in the phone's own time. */
+export function backupFileName(when: Date, ext: "zip" | "json" = "zip"): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `divination-talisman-${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}-${pad(when.getHours())}${pad(when.getMinutes())}.json`;
+  return `divination-talisman-${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}-${pad(when.getHours())}${pad(when.getMinutes())}.${ext}`;
 }
 
 export async function makeBackup(db: Db, when = new Date()): Promise<PhoneBackup> {
@@ -78,4 +82,36 @@ export async function restoreBackup(db: Db, backup: PhoneBackup): Promise<void> 
       }
     }
   });
+}
+
+// ── The zip file: backup.json plus the oracle pictures ──────────────────────────────────────────────
+
+export const BACKUP_JSON = "backup.json";
+
+/** One file holding the data and every picture, so a backup is complete on its own. Pictures are stored as they are (JPEGs do not shrink). */
+export function makeBackupZip(backup: PhoneBackup, pictures: { cardId: number; ext: string; bytes: Uint8Array }[]): Uint8Array {
+  const files: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {};
+  const photos: Record<string, string> = {};
+  for (const p of pictures) {
+    const ext = /^[a-z0-9]{1,5}$/i.test(p.ext) ? p.ext.toLowerCase() : "jpg";
+    const name = `photos/card-${p.cardId}.${ext}`;
+    files[name] = [p.bytes, { level: 0 }];
+    photos[String(p.cardId)] = name;
+  }
+  files[BACKUP_JSON] = strToU8(JSON.stringify({ ...backup, photos }));
+  return zipSync(files, { level: 6 });
+}
+
+/** Reads a backup file: a zip from this version, or the plain JSON file the first version made. */
+export function readBackupFile(bytes: Uint8Array): { text: string; files: Record<string, Uint8Array> } {
+  const isZip = bytes.length > 3 && bytes[0] === 0x50 && bytes[1] === 0x4b;
+  if (!isZip) return { text: strFromU8(bytes), files: {} };
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(bytes);
+  } catch {
+    return { text: "", files: {} };
+  }
+  const json = files[BACKUP_JSON];
+  return { text: json ? strFromU8(json) : "", files };
 }

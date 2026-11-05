@@ -8,11 +8,12 @@ import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
 import { CRISIS_LINES } from "../../core/crisis-lines";
-import { backupFileName, checkBackup, makeBackup, restoreBackup } from "../../db/backup";
+import { backupFileName, checkBackup, readBackupFile } from "../../db/backup";
+import { buildBackupZip, restoreWithPictures } from "../../lib/backup-files";
 import { getSettings, migrate, setSetting, type Settings } from "../../db/queries";
 import { dayTimeText } from "../../lib/dates";
 import { confirmWithLock, lockIsAvailable } from "../../lib/lock";
-import { Body, Button, Card, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
 
 export default function Me() {
   const db = useSQLiteContext();
@@ -49,18 +50,21 @@ export default function Me() {
     setNote(null);
     try {
       const when = new Date();
-      const backup = await makeBackup(db, when);
+      const made = await buildBackupZip(db, when);
       const file = new File(Paths.cache, backupFileName(when));
       if (file.exists) file.delete();
       file.create();
-      file.write(JSON.stringify(backup));
+      file.write(made.zip);
       if (!(await Sharing.isAvailableAsync())) {
         setError("This phone cannot open the save or share sheet, so the backup file could not be handed over.");
         return;
       }
-      await Sharing.shareAsync(file.uri, { mimeType: "application/json", UTI: "public.json", dialogTitle: "Save your backup" });
+      await Sharing.shareAsync(file.uri, { mimeType: "application/zip", UTI: "public.zip-archive", dialogTitle: "Save your backup" });
       await change("lastBackupAt", when.toISOString());
-      setNote("Backup file made. Keep it somewhere that is not only this phone, such as Files, iCloud Drive or Google Drive.");
+      const missing = made.missing
+        ? ` ${made.missing} ${made.missing === 1 ? "card photo is" : "card photos are"} no longer in your photo library, so ${made.missing === 1 ? "it is" : "they are"} not in the file.`
+        : "";
+      setNote(`Backup file made. Keep it somewhere that is not only this phone, such as Files, iCloud Drive or Google Drive.${missing}`);
     } catch (e) {
       setError(`The backup could not be made: ${(e as Error).message}`);
     }
@@ -69,10 +73,16 @@ export default function Me() {
   async function restore() {
     setError(null);
     setNote(null);
-    const picked = await DocumentPicker.getDocumentAsync({ type: ["application/json", "text/plain", "*/*"], copyToCacheDirectory: true });
+    const picked = await DocumentPicker.getDocumentAsync({ type: ["application/zip", "application/json", "*/*"], copyToCacheDirectory: true });
     if (picked.canceled || !picked.assets?.[0]) return;
-    const text = await new File(picked.assets[0].uri).text();
-    const checked = checkBackup(text);
+    let read: { text: string; files: Record<string, Uint8Array> };
+    try {
+      read = readBackupFile(await new File(picked.assets[0].uri).bytes());
+    } catch {
+      setError("This file is not a Divination Talisman backup.");
+      return;
+    }
+    const checked = checkBackup(read.text);
     if (!checked.ok) {
       setError(checked.error);
       return;
@@ -87,7 +97,7 @@ export default function Me() {
           style: "destructive",
           onPress: async () => {
             try {
-              await restoreBackup(db, checked.backup);
+              await restoreWithPictures(db, checked.backup, read.files);
               await migrate(db);
               setS(await getSettings(db));
               setNote("Your backup is back on this phone.");
@@ -112,6 +122,25 @@ export default function Me() {
         />
         <Divider />
         <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
+      </Card>
+
+      <SectionLabel>Photos for your oracle cards</SectionLabel>
+      <Card>
+        <ChoiceRow
+          label="When you add a photo"
+          options={[
+            { value: "copy", label: "Keep a copy in the app" },
+            { value: "link", label: "Link to your photo library" },
+          ]}
+          value={s.photoMode}
+          onChange={(v) => v && change("photoMode", v)}
+        />
+        <Muted>
+          {s.photoMode === "copy"
+            ? "The app keeps its own copy of each photo. It uses more space, and the card keeps its picture even if you delete the photo from your library."
+            : "The app points to the photo in your library and keeps no copy, so it uses no extra space. If you delete the photo from your library, the card loses its picture. Photos you take with the camera are saved to your library first."}
+        </Muted>
+        <Muted>This applies to photos you add from now on. Backup files always hold a copy of every picture.</Muted>
       </Card>
 
       <SectionLabel>Lock</SectionLabel>

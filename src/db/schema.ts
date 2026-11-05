@@ -128,6 +128,22 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+
+  // 2: oracle decks the person makes. A deck lists its own fields; each card fills them in.
+  // oracle_cards.photo_uri holds either a path inside the app's own storage ("oracle-photos/abc.jpg", when
+  // photo_linked is 0) or the id of a photo in the phone's photo library (when photo_linked is 1). A path is kept
+  // relative, because the app's storage folder can move when the app is updated.
+  // reading_pieces.piece_name keeps what a piece was called when it was drawn, so a pull still reads well after its
+  // card is renamed or deleted.
+  `
+  ALTER TABLE oracle_decks ADD COLUMN description TEXT NOT NULL DEFAULT '';
+  ALTER TABLE oracle_decks ADD COLUMN field_defs TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE oracle_cards ADD COLUMN photo_linked INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE oracle_cards ADD COLUMN updated_at TEXT;
+  ALTER TABLE readings ADD COLUMN deck_id INTEGER REFERENCES oracle_decks (id) ON DELETE SET NULL;
+  ALTER TABLE reading_pieces ADD COLUMN piece_name TEXT;
+  CREATE INDEX oracle_cards_deck ON oracle_cards (deck_id);
+  `,
 ];
 
 /**
@@ -135,13 +151,13 @@ export const MIGRATIONS: string[] = [
  * tests/db.test.ts checks this list against the tables the migrations make.
  */
 export const TABLES = [
+  "oracle_decks",
+  "oracle_cards",
   "readings",
   "reading_pieces",
   "sensed_first",
   "meanings",
   "meaning_history",
-  "oracle_decks",
-  "oracle_cards",
   "spreads",
   "journal_entries",
   "predictions",

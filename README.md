@@ -22,12 +22,17 @@ Built with Expo (React Native) and on-device SQLite, for iPhone and Android from
 - **Patterns:** plain counts of your first impressions and how you said they fitted, how sure you felt against how it
   fitted, and cards that keep coming up. Nothing is graded.
 - **Card library:** all 78 cards.
-- **Me:** sense-first and reversals switches, a Face ID, fingerprint or passcode lock, backup to a file and restore
-  from a file, privacy, support lines, credits.
+- **Oracle decks you make yourself** (Tools): name a deck, add your own fields (such as Element or Keywords), and add
+  cards with a photo taken or chosen from the library. Each card has your meanings with their history. Pull from the
+  deck with any spread it has enough cards for; pulls go into Record and Patterns like tarot readings.
+- **Card photos:** kept as a copy in the app, or linked to the photo in the phone's library so no space is used twice
+  (chosen in Me). Linking needs a real build; Expo Go may ask for full photo access or fall back to a copy.
+- **Me:** sense-first and reversals switches, a Face ID, fingerprint or passcode lock, photo copy or link, backup to one zip
+  file (with every card picture) and restore from it (older .json backups still restore), privacy, support lines, credits.
 
-Not yet built (see the build plan): predictions with look-back notifications, tags, the oracle deck kit, the other
+Not yet built (see the build plan): predictions with look-back notifications, tags, the other
 tools (runes, dice and coins, pendulum, I Ching, ogham, geomancy, playing cards, lots, signs and dreams, blind target),
-import from the desktop app's backup, and store builds.
+import from the desktop app's backup, a browser version for iPhones, and app store builds.
 
 ## Running it
 
@@ -37,6 +42,9 @@ npm start          # then open it in Expo Go on your phone (scan the QR code)
 npm test           # the logic and database tests, on Node's own SQLite
 npm run typecheck
 ```
+
+To release it on itch.io for free (an Android app file built by GitHub, with no Expo account), see
+[docs/releasing.md](docs/releasing.md).
 
 `npm run web` opens it in a browser, which is useful for clicking through the screens; the phone is the real target.
 

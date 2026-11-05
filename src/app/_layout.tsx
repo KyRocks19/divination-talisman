@@ -32,6 +32,9 @@ export default function RootLayout() {
             <Stack.Screen name="library" options={{ title: "Card library" }} />
             <Stack.Screen name="card/[id]" options={{ title: "Card" }} />
             <Stack.Screen name="patterns" options={{ title: "Patterns" }} />
+            <Stack.Screen name="oracle/[deckId]" options={{ title: "Deck" }} />
+            <Stack.Screen name="oracle/deck-edit" options={{ title: "Deck" }} />
+            <Stack.Screen name="oracle/card" options={{ title: "Card" }} />
           </Stack>
         </LockGate>
       </SQLiteProvider>

@@ -1,14 +1,15 @@
 // A new reading: ask, write what you sense first, then the cards are drawn and saved at once and the reading opens
 // face down. Drawing and saving together means going back cannot draw again, and the sensed words are sealed with a
-// time before any card is seen.
+// time before any card is seen. With ?deck=ID it is a pull from one of the person's own oracle decks.
 
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { BUILT_IN_SPREADS, getSpread } from "../../core/spreads";
-import { drawForSpread } from "../../core/draw";
+import { drawForSpread, drawPieces } from "../../core/draw";
 import { CONFIDENCE_LABELS, FITS, MAX_GUESS_LENGTH, cleanGuessText, type Confidence } from "../../core/guess-core";
 import { createReading, getSettings, type Settings } from "../../db/queries";
+import { getDeck, listCards, ORACLE_TOOL, type Deck, type OracleCard } from "../../db/oracle";
 import { secureRandom } from "../../lib/random";
 import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, Strong, Title } from "../../ui/kit";
 
@@ -16,9 +17,11 @@ type Step = "ask" | "sense";
 
 export default function NewReading() {
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ spread?: string; daily?: string }>();
+  const params = useLocalSearchParams<{ spread?: string; daily?: string; deck?: string }>();
   const daily = params.daily === "1";
+  const deckId = params.deck ? Number(params.deck) : null;
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [deck, setDeck] = useState<{ deck: Deck; cards: OracleCard[] } | null>(null);
   const [step, setStep] = useState<Step>("ask");
   const [spreadId, setSpreadId] = useState(getSpread(params.spread ?? "")?.id ?? "past-present-future");
   const [question, setQuestion] = useState(daily ? "My card for today" : "");
@@ -28,26 +31,41 @@ export default function NewReading() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getSettings(db).then((s) => {
+    (async () => {
+      if (deckId !== null) {
+        const d = await getDeck(db, deckId);
+        if (d) setDeck({ deck: d, cards: await listCards(db, deckId) });
+      }
+      const s = await getSettings(db);
       setSettings(s);
       // The daily card goes straight to sensing: the question is already written.
       if (daily && s.senseFirst) setStep("sense");
-    });
-  }, [db, daily]);
+    })();
+  }, [db, daily, deckId]);
 
-  if (!settings) return <Loading />;
+  if (!settings || (deckId !== null && !deck)) return <Loading />;
   const spread = getSpread(spreadId)!;
+  // A pull can use any spread with no more positions than the deck has cards.
+  const spreads = deck ? BUILT_IN_SPREADS.filter((s) => s.positions.length <= deck.cards.length) : BUILT_IN_SPREADS;
 
   async function draw(sensed: { guess: string; skipped: boolean } | null) {
     if (busy) return;
     setBusy(true);
     try {
-      const pieces = drawForSpread(spread, secureRandom, settings!.reversals);
+      const pieces = deck
+        ? drawPieces(
+            deck.cards.map((c) => ({ id: String(c.id), name: c.name })),
+            spread,
+            secureRandom,
+            deck.deck.reversals,
+          )
+        : drawForSpread(spread, secureRandom, settings!.reversals);
       const id = await createReading(db, {
-        tool: "tarot",
+        tool: deck ? ORACLE_TOOL : "tarot",
         question,
         spreadId: spread.id,
         spreadName: spread.name,
+        deckId: deck?.deck.id ?? null,
         pieces,
         sensed: sensed && { ...sensed, confidence: sensed.skipped ? null : confidence, sealedAt: new Date().toISOString() },
       });
@@ -61,7 +79,7 @@ export default function NewReading() {
   if (step === "ask") {
     return (
       <Screen>
-        <Title>{daily ? "Today's card" : "Ask"}</Title>
+        <Title>{daily ? "Today's card" : deck ? `Pull from ${deck.deck.name}` : "Ask"}</Title>
         <Field
           label="Your question (you can leave it empty)"
           value={question}
@@ -73,7 +91,7 @@ export default function NewReading() {
         {!daily && (
           <ChoiceRow
             label="Spread"
-            options={BUILT_IN_SPREADS.map((s) => ({ value: s.id, label: `${s.name} (${s.positions.length})` }))}
+            options={spreads.map((s) => ({ value: s.id, label: `${s.name} (${s.positions.length})` }))}
             value={spreadId}
             onChange={(v) => v && setSpreadId(v)}
           />
