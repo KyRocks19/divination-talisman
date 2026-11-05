@@ -27,7 +27,7 @@ Built with Expo (React Native) and on-device SQLite, for iPhone and Android from
 
 Not yet built (see the build plan): predictions with look-back notifications, tags, the oracle deck kit, the other
 tools (runes, dice and coins, pendulum, I Ching, ogham, geomancy, playing cards, lots, signs and dreams, blind target),
-import from the desktop app's backup, and store builds.
+import from the desktop app's backup, a browser version for iPhones, and app store builds.
 
 ## Running it
 
@@ -37,6 +37,9 @@ npm start          # then open it in Expo Go on your phone (scan the QR code)
 npm test           # the logic and database tests, on Node's own SQLite
 npm run typecheck
 ```
+
+To release it on itch.io for free (an Android app file built by GitHub, with no Expo account), see
+[docs/releasing.md](docs/releasing.md).
 
 `npm run web` opens it in a browser, which is useful for clicking through the screens; the phone is the real target.
 

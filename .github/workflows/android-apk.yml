@@ -1,0 +1,114 @@
+# Builds the Android app (an .apk file) on GitHub's own computers, for free, with no Expo account.
+#
+# - On every pull request: a test build, to show the app still builds. Its file is on the run's page under Artifacts.
+# - Run it by hand (Actions > Android APK > Run workflow): the same, signed with the app's own key when the secrets exist.
+# - Push a tag such as v0.1.0: a release build, signed with the app's own key, attached to a GitHub Release. That file
+#   is the one to upload to itch.io.
+#
+# The app's own key comes from four repository secrets (Settings > Secrets and variables > Actions):
+#   TALISMAN_KEYSTORE_BASE64   the keystore file, as base64
+#   TALISMAN_KEYSTORE_PASSWORD
+#   TALISMAN_KEY_ALIAS
+#   TALISMAN_KEY_PASSWORD
+# A release build refuses to run without them, because a phone only accepts an update signed with the same key, and a
+# change of key means uninstalling, which deletes the readings on that phone. See docs/releasing.md.
+
+name: Android APK
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests and typecheck
+        run: |
+          npm test
+          npm run typecheck
+
+      - name: Signing key
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TALISMAN_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/talisman.keystore"
+            echo "file=$RUNNER_TEMP/talisman.keystore" >> "$GITHUB_OUTPUT"
+            echo "kind=release" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "::error::A release build needs the app's signing key. Add the four TALISMAN_* secrets first (docs/releasing.md)."
+            exit 1
+          else
+            echo "No signing key secrets: this is a test build, signed with the public debug key. Do not publish it."
+            echo "kind=test" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A tag v1.2.3 sets the version to 1.2.3 and the version code to 10203. Android only installs an update with a
+      # higher version code over the one a phone has, so each release must have a higher tag than the last.
+      - name: Version from the tag
+        if: github.ref_type == 'tag'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(process.env.GITHUB_REF_NAME);
+            if (!m) { console.error('Tags must look like v1.2.3'); process.exit(1); }
+            const a = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            a.expo.version = m[1] + '.' + m[2] + '.' + m[3];
+            a.expo.android.versionCode = Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+            fs.writeFileSync('app.json', JSON.stringify(a, null, 2));
+          "
+
+      - name: Make the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build
+        working-directory: android
+        env:
+          TALISMAN_KEYSTORE_FILE: ${{ steps.key.outputs.file }}
+          TALISMAN_KEYSTORE_PASSWORD: ${{ secrets.TALISMAN_KEYSTORE_PASSWORD }}
+          TALISMAN_KEY_ALIAS: ${{ secrets.TALISMAN_KEY_ALIAS }}
+          TALISMAN_KEY_PASSWORD: ${{ secrets.TALISMAN_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Name the file
+        id: name
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          if [ "${{ github.ref_type }}" = "tag" ]; then version="${GITHUB_REF_NAME#v}"; fi
+          file="divination-talisman-${version}-${{ steps.key.outputs.kind }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.file }}
+          path: ${{ steps.name.outputs.file }}
+
+      - name: Attach to a GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.file }}" --title "$GITHUB_REF_NAME" --generate-notes
