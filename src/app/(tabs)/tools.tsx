@@ -4,7 +4,7 @@ import { Card, Muted, Screen, SectionLabel, Strong } from "../../ui/kit";
 
 export default function Tools() {
   return (
-    <Screen noHeader>
+    <Screen>
       <SectionLabel>Tarot</SectionLabel>
       {BUILT_IN_SPREADS.map((s) => (
         <Card

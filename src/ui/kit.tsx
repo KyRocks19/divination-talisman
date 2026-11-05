@@ -6,21 +6,17 @@ import {
   ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View,
   type PressableProps, type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, space, useTokens } from "./theme";
 
-/** A screen's scrolling body. `noHeader` is for a screen with no header bar above it, so it keeps clear of the status bar. */
-export function Screen({ children, scroll = true, noHeader = false }: { children: ReactNode; scroll?: boolean; noHeader?: boolean }) {
+export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const t = useTokens();
-  const insets = useSafeAreaInsets();
-  const top = noHeader ? insets.top + space.lg : space.lg;
-  if (!scroll) return <View style={{ flex: 1, backgroundColor: t.canvas, padding: space.lg, paddingTop: top }}>{children}</View>;
+  if (!scroll) return <View style={{ flex: 1, backgroundColor: t.canvas, padding: space.lg }}>{children}</View>;
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: t.canvas }}
-      contentContainerStyle={{ padding: space.lg, paddingTop: top, paddingBottom: space.xl * 2, gap: space.lg }}
+      contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl * 2, gap: space.lg }}
       keyboardShouldPersistTaps="handled"
-      contentInsetAdjustmentBehavior={noHeader ? "never" : "automatic"}
+      contentInsetAdjustmentBehavior="automatic"
     >
       {children}
     </ScrollView>

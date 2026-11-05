@@ -26,8 +26,7 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: "Today" }} />
-      {/* No header bar: the tab itself already says Tools (Kylie, 2026-11-05). */}
-      <Tabs.Screen name="tools" options={{ title: "Tools", headerShown: false }} />
+      <Tabs.Screen name="tools" options={{ title: "Tools" }} />
       <Tabs.Screen name="record" options={{ title: "Record" }} />
       <Tabs.Screen name="me" options={{ title: "Me" }} />
     </Tabs>
