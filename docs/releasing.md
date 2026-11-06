@@ -8,7 +8,8 @@ stores' fees (Apple $99 a year, Google $25 once) only matter for the stores, and
 
 An Android app file (`.apk`) that they download from itch.io and open on their phone. Android asks them once to allow
 installing apps from their browser or files app. iPhones cannot install an app file from outside the App Store, so
-iPhone users need a browser version (not built yet).
+iPhone users (and anyone else) can use the browser version instead, played right on the itch.io page. Both are built
+from the same code by the same workflow, so every release has the same features in both.
 
 ## One-time setup: the app's signing key
 
@@ -44,12 +45,20 @@ Then turn it into text for the first secret: on Windows PowerShell,
    refuses an update whose number is not higher than the one on the phone.
 2. On GitHub, open **Releases > Draft a new release**, type the tag (for example `v0.1.0`) in "Choose a tag" and
    create it on `main`, then publish. Or from a terminal: `git tag v0.1.0` and `git push origin v0.1.0`.
-3. The **Android APK** workflow builds the app (about 15 minutes) and attaches
-   `divination-talisman-0.1.0-release.apk` to that release.
-4. Download that file and upload it to your itch.io project: **Edit game > Uploads > Upload files**, and tick
-   **Android** for its platform. Set the project's "Kind of project" to **Downloadable**.
+3. The **Android APK and browser version** workflow builds both (about 20 minutes) and attaches
+   `divination-talisman-0.1.0-release.apk` and `divination-talisman-0.1.0-web.zip` to that release.
+4. Download both files. On your itch.io project, open **Edit game**:
+   - Set **Kind of project** to **HTML**.
+   - Under **Uploads**, upload the `-web.zip` and tick **This file will be played in the browser**.
+   - Upload the `.apk` too and tick **Android** for it, so Android users can download it.
+   - Under **Embed options**: tick **Mobile friendly** (orientation: portrait), set the viewport to 390 x 844 or
+     tick **Click to launch in fullscreen**, and tick **SharedArrayBuffer support**. The browser version keeps its
+     readings in a small database inside the browser, and that database needs this option; without it the page stops
+     at the loading screen.
+   - Save, then open the page on your phone to check that a reading can be drawn.
 
-Test builds: every pull request also builds an APK, found on the workflow run's page under **Artifacts**. Its name
+Test builds: every pull request also builds an APK and a browser zip, found on the workflow run's page under
+**Artifacts**. Its name
 ends in `-test` when it was signed with the public debug key. Those are for trying the app out, never for itch.io.
 
 ## What to tell people on the itch.io page
@@ -57,3 +66,16 @@ ends in `-test` when it was signed with the public debug key. Those are for tryi
 - Their readings are kept only on their phone, and the app makes no connections.
 - They should make a backup file from **Me > Backup** now and then, and always before uninstalling.
 - To update, they download the new file and open it. Their readings stay.
+- **Browser version:** their readings are kept only in that browser on that device, not on itch.io. A new release
+  keeps them: itch.io serves every HTML game from the same web address, and the browser keeps storage by address.
+  Safari on iPhones and iPads can clear what a website keeps after 7 days without a visit, so they should open it at
+  least once a week and make a backup file often (**Me > Backup**). Backups move between the phone app and the
+  browser version in both directions.
+
+## Building the browser version yourself
+
+`npm run build:web` makes `dist/divination-talisman-web.zip`. Expo's web export uses absolute paths, and itch.io
+serves the game from a folder whose name is only known after upload, so `scripts/build-web.mjs` builds with a
+placeholder base path and turns every use of it into the page's own folder, worked out when the page opens. The zip
+works from any folder on any web host that sends the two cross-origin isolation headers
+(`Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`).

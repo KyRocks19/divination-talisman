@@ -12,6 +12,7 @@ import { patternRows } from "../db/queries";
 import { dayText } from "../lib/dates";
 import { Body, Card, Loading, Muted, Screen, SectionLabel, Strong } from "../ui/kit";
 import { radius, space, useTokens } from "../ui/theme";
+import { HERE } from "../lib/where";
 
 export default function Patterns() {
   const db = useSQLiteContext();
@@ -33,7 +34,7 @@ export default function Patterns() {
       <Body>
         {data.readings === 0
           ? "Patterns appear here once you have some readings."
-          : `${data.readings} ${data.readings === 1 ? "reading" : "readings"} on this phone.`}
+          : `${data.readings} ${data.readings === 1 ? "reading" : "readings"} ${HERE}.`}
       </Body>
 
       <SectionLabel>What you sensed first</SectionLabel>

@@ -1,9 +1,10 @@
-# Builds the Android app (an .apk file) on GitHub's own computers, for free, with no Expo account.
+# Builds the Android app (an .apk file) and the browser version (a .zip for itch.io) on GitHub's own computers, for
+# free, with no Expo account. Both come from the same code, so a release always has the same features in both.
 #
 # - On every pull request: a test build, to show the app still builds. Its file is on the run's page under Artifacts.
 # - Run it by hand (Actions > Android APK > Run workflow): the same, signed with the app's own key when the secrets exist.
 # - Push a tag such as v0.1.0: a release build, signed with the app's own key, attached to a GitHub Release. That file
-#   is the one to upload to itch.io.
+#   is the one to upload to itch.io. The browser version's zip is attached to the same Release.
 #
 # The app's own key comes from four repository secrets (Settings > Secrets and variables > Actions):
 #   TALISMAN_KEYSTORE_BASE64   the keystore file, as base64
@@ -13,7 +14,7 @@
 # A release build refuses to run without them, because a phone only accepts an update signed with the same key, and a
 # change of key means uninstalling, which deletes the readings on that phone. See docs/releasing.md.
 
-name: Android APK
+name: Android APK and browser version
 
 on:
   pull_request:
@@ -111,4 +112,49 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.file }}" --title "$GITHUB_REF_NAME" --generate-notes
+        # The Release may already exist, when it was made on GitHub's "new release" page (which also makes the tag).
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${{ steps.name.outputs.file }}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.file }}" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+
+  # The browser version, for iPhones (and anyone without Android), as one zip to upload to itch.io as an HTML game.
+  web:
+    runs-on: ubuntu-latest
+    needs: apk
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the browser version
+        run: npm run build:web
+
+      - name: Name the file
+        id: name
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          if [ "${{ github.ref_type }}" = "tag" ]; then version="${GITHUB_REF_NAME#v}"; fi
+          file="divination-talisman-${version}-web.zip"
+          cp dist/divination-talisman-web.zip "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.file }}
+          path: ${{ steps.name.outputs.file }}
+
+      - name: Attach to the GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "${{ steps.name.outputs.file }}" --clobber

@@ -10,6 +10,7 @@ import { OwnMeaning } from "../../ui/OwnMeaning";
 import { CardImage } from "../../ui/CardImage";
 import { Body, Button, Muted, Screen, SectionLabel, Strong } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
+import { HERE } from "../../lib/where";
 
 export default function CardScreen() {
   const db = useSQLiteContext();
@@ -42,7 +43,7 @@ export default function CardScreen() {
       <View style={{ alignItems: "center" }}>
         <CardImage cardId={card.id} width={Math.min(width * 0.5, 240)} />
       </View>
-      <Muted style={{ textAlign: "center" }}>Your words come first. They are kept on this phone, and every earlier version is kept too.</Muted>
+      <Muted style={{ textAlign: "center" }}>Your words come first. They are kept {HERE}, and every earlier version is kept too.</Muted>
       <OwnMeaning tool="tarot" pieceId={card.id} orientation="upright" row={meanings.upright} onSaved={load} />
       <OwnMeaning tool="tarot" pieceId={card.id} orientation="reversed" row={meanings.reversed} onSaved={load} />
       <Stock cardId={card.id} />

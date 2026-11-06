@@ -32,7 +32,16 @@ Built with Expo (React Native) and on-device SQLite, for iPhone and Android from
 
 Not yet built (see the build plan): predictions with look-back notifications, tags, the other
 tools (runes, dice and coins, pendulum, I Ching, ogham, geomancy, playing cards, lots, signs and dreams, blind target),
-import from the desktop app's backup, a browser version for iPhones, and app store builds.
+import from the desktop app's backup, and app store builds.
+
+## The browser version
+
+The same code also runs in a browser, for iPhones and anyone without Android, as an HTML game on itch.io.
+`npm run build:web` makes `dist/divination-talisman-web.zip`, and every release attaches it next to the APK
+(`docs/releasing.md`). In a browser the readings stay in that browser's storage. There is no lock, photos are always
+kept as a smaller copy with their card, backups are downloaded or shared, and the app reminds people to back up after
+7 days, because Safari can clear a website's storage after 7 days without a visit. Files ending in `.web.ts` are the
+browser's versions of the phone-only parts.
 
 ## Running it
 

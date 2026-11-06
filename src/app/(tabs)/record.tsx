@@ -7,6 +7,7 @@ import { getCardById } from "../../core/cards";
 import { listReadings, PIECE_NAME_SEPARATOR, type ReadingListItem } from "../../db/queries";
 import { dayText } from "../../lib/dates";
 import { Body, Button, Card, Field, Muted, Screen, Strong } from "../../ui/kit";
+import { HERE } from "../../lib/where";
 
 export default function Record() {
   const db = useSQLiteContext();
@@ -38,7 +39,7 @@ export default function Record() {
         autoCorrect={false}
       />
       {rows && rows.length === 0 && (
-        <Muted>{search.trim() ? "No reading has those words." : "Your readings will be listed here. They are kept only on this phone."}</Muted>
+        <Muted>{search.trim() ? "No reading has those words." : `Your readings will be listed here. They are kept only ${HERE}.`}</Muted>
       )}
       {rows?.map((r) => {
         const ids = (r.piece_ids ?? "").split(",").filter(Boolean);

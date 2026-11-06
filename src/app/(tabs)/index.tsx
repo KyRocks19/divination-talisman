@@ -6,7 +6,11 @@ import { useSQLiteContext } from "expo-sqlite";
 import { getCardById } from "../../core/cards";
 import { getSettings, listReadings, PIECE_NAME_SEPARATOR, type ReadingListItem } from "../../db/queries";
 import { dayText, daysSince } from "../../lib/dates";
+import { ON_WEB } from "../../lib/where";
 import { Body, Button, Card, Muted, Screen, SectionLabel, Strong, Title } from "../../ui/kit";
+
+// In a browser, Safari can clear a website's storage after 7 days without a visit, so the reminder comes sooner.
+const BACKUP_DUE_DAYS = ON_WEB ? 7 : 30;
 
 export default function Today() {
   const db = useSQLiteContext();
@@ -33,7 +37,7 @@ export default function Today() {
     }, [db]),
   );
 
-  const backupDue = count > 0 && (!hasBackup || (backupDays !== null && backupDays >= 30));
+  const backupDue = count > 0 && (!hasBackup || (backupDays !== null && backupDays >= BACKUP_DUE_DAYS));
 
   return (
     <Screen>
@@ -77,7 +81,9 @@ export default function Today() {
           <Muted>
             {hasBackup
               ? `Your last backup was ${backupDays} days ago.`
-              : "Your readings are only on this phone. A backup file keeps them safe if the phone is lost."}
+              : ON_WEB
+                ? "Your readings are only in this browser, and a browser can clear them. A backup file keeps them safe."
+                : "Your readings are only on this phone. A backup file keeps them safe if the phone is lost."}
           </Muted>
           <Button label="Go to backups" variant="text" onPress={() => router.push("/me")} />
         </Card>

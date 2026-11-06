@@ -2,14 +2,18 @@
 // opens and each time it comes back from the background. Nothing is shown behind the lock screen.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useSQLiteContext } from "expo-sqlite";
 import { getSettings } from "../db/queries";
 import { Body, Button, Loading, Title } from "../ui/kit";
 import { space, useTokens } from "../ui/theme";
 
+/** The browser version has no lock: a browser cannot ask for Face ID or the phone's passcode. */
+export const LOCK_SUPPORTED = Platform.OS !== "web";
+
 export async function lockIsAvailable(): Promise<boolean> {
+  if (!LOCK_SUPPORTED) return false;
   return (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
 }
 
@@ -30,15 +34,16 @@ export function LockGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     getSettings(db).then((s) => {
-      lockOn.current = s.lock;
-      if (s.lock) {
+      // A backup from a phone can carry the lock setting; a browser could never unlock, so it is ignored there.
+      lockOn.current = s.lock && LOCK_SUPPORTED;
+      if (lockOn.current) {
         setState("locked");
         unlock();
       } else setState("open");
     });
     const sub = AppState.addEventListener("change", async (next) => {
       if (next !== "background") return;
-      lockOn.current = (await getSettings(db)).lock;
+      lockOn.current = (await getSettings(db)).lock && LOCK_SUPPORTED;
       if (lockOn.current) setState("locked");
     });
     return () => sub.remove();

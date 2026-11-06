@@ -21,6 +21,7 @@ import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracl
 import type { FieldDef } from "../../core/oracle";
 import { Body, Button, Card, ChoiceRow, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
+import { HERE, THIS_DEVICE } from "../../lib/where";
 
 export default function ReadingScreen() {
   const db = useSQLiteContext();
@@ -58,7 +59,7 @@ export default function ReadingScreen() {
   if (data === null) {
     return (
       <Screen>
-        <Body>This reading is no longer on this phone.</Body>
+        <Body>This reading is no longer {HERE}.</Body>
       </Screen>
     );
   }
@@ -404,7 +405,7 @@ function ShareAndDelete({ data, oracle }: { data: FullReading; oracle: OracleInf
         label="Delete this reading"
         variant="danger"
         onPress={() =>
-          Alert.alert("Delete this reading?", "Its cards, what you sensed, its notes and its journal entries are deleted from this phone. This cannot be undone.", [
+          Alert.alert("Delete this reading?", `Its cards, what you sensed, its notes and its journal entries are deleted from ${THIS_DEVICE}. This cannot be undone.`, [
             { text: "Cancel", style: "cancel" },
             {
               text: "Delete",

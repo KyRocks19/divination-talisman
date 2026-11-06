@@ -1,13 +1,17 @@
+import "../lib/alert-polyfill";
 import { Suspense } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SQLiteProvider } from "expo-sqlite";
 import { migrate } from "../db/queries";
 import { LockGate } from "../lib/lock";
+import { ON_WEB } from "../lib/where";
 import { Loading } from "../ui/kit";
 import { useIsDark, useTokens } from "../ui/theme";
 
-export const DATABASE_NAME = "talisman.db";
+// Never rename the phone's database: the readings are in it. The browser version has its own, longer name, because
+// itch.io serves every HTML game from one web address, and their browser storage is shared.
+export const DATABASE_NAME = ON_WEB ? "divination-talisman-readings.db" : "talisman.db";
 
 export default function RootLayout() {
   const t = useTokens();

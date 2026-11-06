@@ -7,6 +7,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { deleteHistoryEntry, meaningHistory, saveMeaning, type HistoryRow, type MeaningRow, type Orientation } from "../db/queries";
 import { dayText } from "../lib/dates";
 import { Body, Button, Card, Field, Muted } from "./kit";
+import { THIS_DEVICE } from "../lib/where";
 
 export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label }: {
   tool: string;
@@ -43,7 +44,7 @@ export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label }: 
             onSaved();
           };
           if (text.trim()) return save();
-          Alert.alert("Empty this meaning?", "Your words and their earlier versions are deleted from this phone.", [
+          Alert.alert("Empty this meaning?", `Your words and their earlier versions are deleted from ${THIS_DEVICE}.`, [
             { text: "Cancel", style: "cancel" },
             { text: "Empty it", style: "destructive", onPress: save },
           ]);
