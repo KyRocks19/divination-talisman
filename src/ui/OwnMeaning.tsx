@@ -9,7 +9,7 @@ import { dayText } from "../lib/dates";
 import { Body, Button, Card, Field, Muted } from "./kit";
 import { THIS_DEVICE } from "../lib/where";
 
-export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label }: {
+export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label, placeholder }: {
   tool: string;
   pieceId: string;
   orientation: Orientation;
@@ -17,6 +17,7 @@ export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label }: 
   onSaved: () => void;
   /** Defaults to "Your meaning, upright" or "Your meaning, reversed". */
   label?: string;
+  placeholder?: string;
 }) {
   const db = useSQLiteContext();
   const [text, setText] = useState(row?.text ?? "");
@@ -33,7 +34,7 @@ export function OwnMeaning({ tool, pieceId, orientation, row, onSaved, label }: 
   const fieldLabel = label ?? (orientation === "upright" ? "Your meaning, upright" : "Your meaning, reversed");
   return (
     <Card>
-      <Field label={fieldLabel} value={text} onChangeText={setText} multiline placeholder="What does this card mean to you?" />
+      <Field label={fieldLabel} value={text} onChangeText={setText} multiline placeholder={placeholder ?? "What does this card mean to you?"} />
       {row && <Muted>Last changed {dayText(row.updated_at)}</Muted>}
       <Button
         label={text.trim() === saved ? "Saved" : text.trim() ? "Save" : "Empty it"}

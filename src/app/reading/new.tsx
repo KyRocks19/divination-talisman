@@ -1,6 +1,7 @@
 // A new reading: ask, write what you sense first, then the cards are drawn and saved at once and the reading opens
 // face down. Drawing and saving together means going back cannot draw again, and the sensed words are sealed with a
-// time before any card is seen. With ?deck=ID it is a pull from one of the person's own oracle decks.
+// time before any card is seen. With ?deck=ID it is a pull from one of the person's own oracle decks; with ?tool=ID
+// it is a reading with one of the other tools (runes, dice, the I Ching and the rest, src/core/tools.ts).
 
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -11,13 +12,16 @@ import { CONFIDENCE_LABELS, FITS, MAX_GUESS_LENGTH, cleanGuessText, type Confide
 import { createReading, getSettings, type Settings } from "../../db/queries";
 import { getDeck, listCards, ORACLE_TOOL, type Deck, type OracleCard } from "../../db/oracle";
 import { secureRandom } from "../../lib/random";
+import { MAX_THROW_COUNT, THROW_OBJECTS, castGeomancy, castIChing, drawTool, getTool, throwDice } from "../../core/tools";
+import type { DiceObjectId } from "../../core/tools/dice-data";
 import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, Strong, Title } from "../../ui/kit";
 
 type Step = "ask" | "sense";
 
 export default function NewReading() {
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ spread?: string; daily?: string; deck?: string }>();
+  const params = useLocalSearchParams<{ spread?: string; daily?: string; deck?: string; tool?: string }>();
+  const tool = params.tool ? getTool(params.tool) : undefined;
   const daily = params.daily === "1";
   const deckId = params.deck ? Number(params.deck) : null;
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -29,6 +33,9 @@ export default function NewReading() {
   const [confidence, setConfidence] = useState<Confidence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [object, setObject] = useState<DiceObjectId>("coin");
+  const [count, setCount] = useState(1);
+  const [method, setMethod] = useState<"coins" | "yarrow">("coins");
 
   useEffect(() => {
     (async () => {
@@ -46,27 +53,50 @@ export default function NewReading() {
   if (!settings || (deckId !== null && !deck)) return <Loading />;
   const spread = getSpread(spreadId)!;
   // A pull can use any spread with no more positions than the deck has cards.
-  const spreads = deck ? BUILT_IN_SPREADS.filter((s) => s.positions.length <= deck.cards.length) : BUILT_IN_SPREADS;
+  const available = deck ? deck.cards.length : tool?.kind === "draw" ? tool.pieces().length : 78;
+  const spreads = BUILT_IN_SPREADS.filter((s) => s.positions.length <= available);
+  const usesSpread = !tool || tool.kind === "draw";
+  const thrown = THROW_OBJECTS.find((o) => o.id === object)!;
+  /** What the sense-first step says will happen, and how many pieces. */
+  const what: { words: string } = !tool || tool.kind === "draw"
+    ? { words: `${spread.positions.length} ${spread.positions.length === 1 ? (tool?.pieceWord ?? "card") : `${tool?.pieceWord ?? "card"}s`}: ${spread.positions.map((p) => p.name).join(", ")}` }
+    : tool.kind === "throw"
+      ? { words: `${count} × ${thrown.name}` }
+      : tool.kind === "iching"
+        ? { words: method === "coins" ? "Six lines, cast with three coins" : "Six lines, cast with yarrow stalks" }
+        : { words: "Four Mothers, and the chart made from them" };
 
   async function draw(sensed: { guess: string; skipped: boolean } | null) {
     if (busy) return;
     setBusy(true);
     try {
-      const pieces = deck
-        ? drawPieces(
-            deck.cards.map((c) => ({ id: String(c.id), name: c.name })),
-            spread,
-            secureRandom,
-            deck.deck.reversals,
-          )
-        : drawForSpread(spread, secureRandom, settings!.reversals);
+      let made: { spreadId: string | null; spreadName: string | null; pieces: ReturnType<typeof drawForSpread> };
+      if (tool?.kind === "throw") {
+        made = { spreadId: null, spreadName: null, pieces: throwDice(object, count, secureRandom) };
+      } else if (tool?.kind === "iching") {
+        made = castIChing(method, secureRandom);
+      } else if (tool?.kind === "geomancy") {
+        made = castGeomancy(secureRandom);
+      } else {
+        const pieces = deck
+          ? drawPieces(
+              deck.cards.map((c) => ({ id: String(c.id), name: c.name })),
+              spread,
+              secureRandom,
+              deck.deck.reversals,
+            )
+          : tool
+            ? drawTool(tool, spread, secureRandom, settings!.reversals)
+            : drawForSpread(spread, secureRandom, settings!.reversals);
+        made = { spreadId: spread.id, spreadName: spread.name, pieces };
+      }
       const id = await createReading(db, {
-        tool: deck ? ORACLE_TOOL : "tarot",
+        tool: deck ? ORACLE_TOOL : (tool?.id ?? "tarot"),
         question,
-        spreadId: spread.id,
-        spreadName: spread.name,
+        spreadId: made.spreadId,
+        spreadName: made.spreadName,
         deckId: deck?.deck.id ?? null,
-        pieces,
+        pieces: made.pieces,
         sensed: sensed && { ...sensed, confidence: sensed.skipped ? null : confidence, sealedAt: new Date().toISOString() },
       });
       router.replace({ pathname: "/reading/[id]", params: { id: String(id), reveal: "1" } });
@@ -79,7 +109,7 @@ export default function NewReading() {
   if (step === "ask") {
     return (
       <Screen>
-        <Title>{daily ? "Today's card" : deck ? `Pull from ${deck.deck.name}` : "Ask"}</Title>
+        <Title>{daily ? "Today's card" : deck ? `Pull from ${deck.deck.name}` : tool ? tool.name : "Ask"}</Title>
         <Field
           label="Your question (you can leave it empty)"
           value={question}
@@ -88,7 +118,7 @@ export default function NewReading() {
           multiline
           maxLength={500}
         />
-        {!daily && (
+        {!daily && usesSpread && (
           <ChoiceRow
             label="Spread"
             options={spreads.map((s) => ({ value: s.id, label: `${s.name} (${s.positions.length})` }))}
@@ -96,11 +126,46 @@ export default function NewReading() {
             onChange={(v) => v && setSpreadId(v)}
           />
         )}
-        <Muted>{spread.description}</Muted>
+        {usesSpread && <Muted>{spread.description}</Muted>}
+        {tool?.kind === "throw" && (
+          <>
+            <ChoiceRow
+              label="What to throw"
+              options={THROW_OBJECTS.map((o) => ({ value: o.id, label: o.name }))}
+              value={object}
+              onChange={(v) => v && setObject(v)}
+            />
+            <ChoiceRow
+              label="How many"
+              options={Array.from({ length: MAX_THROW_COUNT }, (_, i) => ({ value: i + 1, label: String(i + 1) }))}
+              value={count}
+              onChange={(v) => v && setCount(v)}
+            />
+          </>
+        )}
+        {tool?.kind === "iching" && (
+          <>
+            <ChoiceRow
+              label="How to cast the lines"
+              options={[
+                { value: "coins" as const, label: "Three coins" },
+                { value: "yarrow" as const, label: "Yarrow stalks" },
+              ]}
+              value={method}
+              onChange={(v) => v && setMethod(v)}
+            />
+            <Muted>
+              {method === "coins"
+                ? "Each line is three coin tosses, heads counting 3 and tails 2."
+                : "Each line has the odds of the yarrow-stalk count, where old yang comes up more often than old yin."}
+            </Muted>
+          </>
+        )}
+        {tool?.kind === "geomancy" && <Muted>Sixteen lines of one or two dots, made by chance, become the four Mothers. The rest of the chart is worked out from them.</Muted>}
         {settings.senseFirst ? (
           <Button label="Next" onPress={() => setStep("sense")} />
         ) : (
-          <Button label="Draw the cards" onPress={() => draw(null)} disabled={busy} />
+          <Button label={tool && tool.kind !== "draw" ? "Cast it" : "Draw"} onPress={() => draw(null)} disabled={busy} />
         )}
         {error && <ErrorNote>{error}</ErrorNote>}
       </Screen>
@@ -111,14 +176,12 @@ export default function NewReading() {
     <Screen>
       <Title>Write what you sense first</Title>
       <Body>
-        Before the {spread.positions.length === 1 ? "card is" : "cards are"} drawn, note your first impression: a feeling, a picture, a word.
-        It is sealed with the time and shown beside the cards afterwards.
+        Before anything is {tool && tool.kind !== "draw" ? "cast" : "drawn"}, note your first impression: a feeling, a picture, a word. It is
+        sealed with the time and shown beside the result afterwards.
       </Body>
       <Card>
-        <Strong>{question.trim() || spread.name}</Strong>
-        <Muted>
-          {spread.positions.length} {spread.positions.length === 1 ? "card" : "cards"}: {spread.positions.map((p) => p.name).join(", ")}
-        </Muted>
+        <Strong>{question.trim() || (usesSpread ? spread.name : tool!.name)}</Strong>
+        <Muted>{what.words}</Muted>
       </Card>
       <Field
         label="What do you sense?"
@@ -139,7 +202,7 @@ export default function NewReading() {
         allowNone
       />
       <Button
-        label="Seal it and draw"
+        label={tool && tool.kind !== "draw" ? "Seal it and cast" : "Seal it and draw"}
         onPress={() => {
           const c = cleanGuessText(guess);
           if (!c.ok) return setError(c.error);

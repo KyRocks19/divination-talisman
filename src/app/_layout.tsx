@@ -57,6 +57,8 @@ export default function RootLayout() {
             <Stack.Screen name="predictions" options={{ title: "Predictions" }} />
             <Stack.Screen name="prediction/[id]" options={{ title: "Prediction" }} />
             <Stack.Screen name="tags" options={{ title: "Tags" }} />
+            <Stack.Screen name="tool/[id]" options={{ title: "Tool" }} />
+            <Stack.Screen name="piece/[tool]/[id]" options={{ title: "Meaning" }} />
           </Stack>
         </LockGate>
       </SQLiteProvider>

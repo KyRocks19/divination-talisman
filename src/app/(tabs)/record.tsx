@@ -79,7 +79,7 @@ export default function Record() {
         const names = ids.map((id, i) => (r.tool === "tarot" ? getCardById(id)?.name : undefined) ?? (kept[i] || "A piece"));
         return (
           <Card key={r.id} onPress={() => router.push(`/reading/${r.id}`)} accessibilityHint="Opens the reading">
-            <Strong>{r.question || r.spread_name || "Reading"}</Strong>
+            <Strong>{r.question || r.spread_name || toolName(r.tool)}</Strong>
             <Muted>
               {dayText(r.created_at)}
               {r.tool !== "tarot" && r.tool !== "oracle" ? ` · ${toolName(r.tool)}` : ""}
