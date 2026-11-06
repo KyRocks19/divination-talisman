@@ -25,10 +25,13 @@ if (ON_WEB && typeof window !== "undefined") {
   );
 }
 
-/** Whether a text field has the keyboard. react-native-web has the older name for the check. */
+/** Whether a text field has the keyboard. React Native has currentlyFocusedInput; react-native-web only the older currentlyFocusedField. */
 function typingNow(): boolean {
   const state = TextInput.State as { currentlyFocusedInput?: () => unknown; currentlyFocusedField?: () => unknown };
-  return !!(state.currentlyFocusedInput?.() ?? state.currentlyFocusedField?.());
+  // Only fall back to the older name where the newer one does not exist: on a phone, calling the older one logs a
+  // "deprecated" warning on every touch.
+  if (typeof state.currentlyFocusedInput === "function") return state.currentlyFocusedInput() != null;
+  return state.currentlyFocusedField?.() != null;
 }
 
 /** Wraps a page (src/ui/kit.tsx, Screen). Only the four tab pages swipe; every other page is left as it is. */
