@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 440" role="img" aria-labelledby="t">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 456" role="img" aria-labelledby="t">
   <title id="t">Talisman</title>
   <defs>
   <radialGradient id="lavGlow" cx="50%" cy="50%" r="60%">
@@ -18,16 +18,16 @@
     <stop offset="0" stop-color="#D8B791"/><stop offset="1" stop-color="#A97F59"/>
   </linearGradient>
 </defs>
-  <rect width="400" height="440" rx="40" fill="#1A1424"/>
+  <rect width="400" height="456" rx="40" fill="#1A1424"/>
   
   <g fill="none" stroke-linejoin="round" stroke-linecap="round">
-   <ellipse cx="200" cy="390" rx="180" ry="36" stroke="#C9A27E" stroke-width="7"/>
+   <ellipse cx="200" cy="427" rx="180" ry="17" stroke="#C9A27E" stroke-width="7"/>
    <path d="M106,386 C104,150 136,24 200,24 C264,24 296,150 294,386 Q293,410 268,410 L132,410 Q107,410 106,386 Z" fill="#241C33" stroke="#C9A27E" stroke-width="7"/>
    <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" stroke="#C8B6E2" stroke-width="14" opacity="0.6" filter="url(#halo)"/>
    <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" fill="#2E2445" stroke="#DCCFF5" stroke-width="5"/>
   </g>
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <g stroke="#6FD483" stroke-width="34" opacity="0.75" filter="url(#halo)"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/></g>
-  <g stroke="#3C8A46" stroke-width="16"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/></g>
+  <g transform="translate(200 224) scale(0.85) translate(-200 -224)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="#6FD483" stroke-width="37" opacity="0.75" filter="url(#halo)"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/></g>
+  <g stroke="#3C8A46" stroke-width="19"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/></g>
 </g>
 </svg>
