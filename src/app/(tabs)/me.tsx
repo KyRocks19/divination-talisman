@@ -96,7 +96,7 @@ export default function Me() {
     try {
       read = readBackupFile(await readPickedFile(picked.assets[0].uri));
     } catch {
-      setError("This file is not a Divination Talisman backup.");
+      setError("This file is not a Talisman backup.");
       return;
     }
     const checked = checkBackup(read.text);
@@ -300,7 +300,7 @@ export default function Me() {
 
       <SectionLabel>About</SectionLabel>
       <Card>
-        <Strong>Divination Talisman</Strong>
+        <Strong>Talisman</Strong>
         <Muted>
           A phone edition of Divination Station. You are the author of every meaning here; the app is a mirror for your own intuition.
         </Muted>
@@ -310,7 +310,7 @@ export default function Me() {
         </Muted>
       </Card>
       <Muted accessibilityRole="text" style={{ textAlign: "center" }}>
-        Divination Talisman, version {APP_VERSION}
+        Talisman, version {APP_VERSION}
       </Muted>
     </Screen>
   );

@@ -29,7 +29,7 @@ export function LockGate({ children }: { children: ReactNode }) {
   const lockOn = useRef(false);
 
   const unlock = useCallback(async () => {
-    if (await confirmWithLock("Open Divination Talisman")) setState("open");
+    if (await confirmWithLock("Open Talisman")) setState("open");
   }, []);
 
   useEffect(() => {

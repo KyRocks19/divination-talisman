@@ -4,7 +4,8 @@ The phone edition of Divination Station: a tarot app that evolves with the perso
 intuition. Every reading stays on the phone. No server, no accounts, no analytics, no network connections. The plan
 is the doc "Divination Station Mobile: build plan"; the desktop app is `KyRocks19/divination-station-takeoff`.
 
-Never push to a remote unless the owner asks.
+When a change is done and the checks below pass, push its branch and open a pull request to `main`. Never push straight
+to `main`.
 
 ## Expo has changed: do not trust your training data
 
