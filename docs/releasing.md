@@ -42,7 +42,9 @@ Then turn it into text for the first secret: on Windows PowerShell,
 ## Each release
 
 1. Pick the next version number, higher than the last one: `v0.1.0`, then `v0.1.1`, `v0.2.0` and so on. Android
-   refuses an update whose number is not higher than the one on the phone.
+   refuses an update whose number is not higher than the one on the phone. The build writes the tag's number into
+   `package.json`, and the Me page and the Android version code both come from there, so nothing else needs editing.
+   (Outside a release, the app shows whatever `version` says in `package.json`.)
 2. On GitHub, open **Releases > Draft a new release**, type the tag (for example `v0.1.0`) in "Choose a tag" and
    create it on `main`, then publish. Or from a terminal: `git tag v0.1.0` and `git push origin v0.1.0`.
 3. The **Android APK and browser version** workflow builds both (about 20 minutes) and attaches
