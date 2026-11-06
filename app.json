@@ -2,7 +2,6 @@
   "expo": {
     "name": "Talisman",
     "slug": "divination-talisman",
-    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,8 +19,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.divinationstation.talisman",
-      "versionCode": 1
+      "package": "com.divinationstation.talisman"
     },
     "web": {
       "favicon": "./assets/favicon.png"

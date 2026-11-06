@@ -67,20 +67,11 @@ jobs:
             echo "kind=test" >> "$GITHUB_OUTPUT"
           fi
 
-      # A tag v1.2.3 sets the version to 1.2.3 and the version code to 10203. Android only installs an update with a
-      # higher version code over the one a phone has, so each release must have a higher tag than the last.
+      # A tag v1.2.3 sets the version to 1.2.3 (app.config.js turns that into the version code 10203). Android only
+      # installs an update with a higher version code over the one a phone has, so each release must have a higher tag.
       - name: Version from the tag
         if: github.ref_type == 'tag'
-        run: |
-          node -e "
-            const fs = require('fs');
-            const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(process.env.GITHUB_REF_NAME);
-            if (!m) { console.error('Tags must look like v1.2.3'); process.exit(1); }
-            const a = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            a.expo.version = m[1] + '.' + m[2] + '.' + m[3];
-            a.expo.android.versionCode = Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
-            fs.writeFileSync('app.json', JSON.stringify(a, null, 2));
-          "
+        run: node scripts/version-from-tag.mjs "$GITHUB_REF_NAME"
 
       - name: Make the Android project
         run: npx expo prebuild --platform android --no-install
@@ -97,8 +88,7 @@ jobs:
       - name: Name the file
         id: name
         run: |
-          version=$(node -p "require('./app.json').expo.version")
-          if [ "${{ github.ref_type }}" = "tag" ]; then version="${GITHUB_REF_NAME#v}"; fi
+          version=$(node -p "require('./package.json').version")
           file="divination-talisman-${version}-${{ steps.key.outputs.kind }}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
@@ -136,14 +126,18 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The Me page shows the version, so the browser build needs the tag's version too.
+      - name: Version from the tag
+        if: github.ref_type == 'tag'
+        run: node scripts/version-from-tag.mjs "$GITHUB_REF_NAME"
+
       - name: Build the browser version
         run: npm run build:web
 
       - name: Name the file
         id: name
         run: |
-          version=$(node -p "require('./app.json').expo.version")
-          if [ "${{ github.ref_type }}" = "tag" ]; then version="${GITHUB_REF_NAME#v}"; fi
+          version=$(node -p "require('./package.json').version")
           file="divination-talisman-${version}-web.zip"
           cp dist/divination-talisman-web.zip "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
