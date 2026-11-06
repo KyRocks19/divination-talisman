@@ -30,9 +30,20 @@ Built with Expo (React Native) and on-device SQLite, for iPhone and Android from
 - **Me:** sense-first and reversals switches, a Face ID, fingerprint or passcode lock, photo copy or link, backup to one zip
   file (with every card picture) and restore from it (older .json backups still restore), privacy, support lines, credits.
 
-Not yet built (see the build plan): predictions with look-back notifications, tags, the other
-tools (runes, dice and coins, pendulum, I Ching, ogham, geomancy, playing cards, lots, signs and dreams, blind target),
-import from the desktop app's backup, and app store builds.
+- **Other tools** (Tools): runes, ogham, playing cards, dice and coins, the I Ching (coins or yarrow odds, with
+  changing lines), geomancy (a sixteen-figure chart), lots from your own list, and the pendulum (you note how it swung).
+  Each has a page of its pieces with your own meanings; any traditional text is behind a button. Readings from every
+  tool go into Record, Patterns, tags, predictions and backups.
+- **Predictions:** after any reading, write what you expect and choose a day to look back. The first words are kept
+  beside any rewording; when the day comes, say what happened. Due ones show on Today; plain counts in Patterns.
+- **Reminders** (phone only): a notification on a prediction's look-back day, and 30 days after the last backup. They
+  are set on the phone with no push service and never show your words. Two switches in Me.
+- **Tags:** on any reading; Record filters by tag, search finds them, and a Tags screen renames or deletes them.
+- **Signs and dreams** and **blind-target practice** (Tools).
+- **From the desktop app** (Me): bring in the JSON file from Divination Station's Settings export. It only adds.
+
+Not built: tea leaves, ink blots, scrying, charm casting, bibliomancy, cloths, the encyclopedia, extra themes, the AI
+companion, and app store builds.
 
 ## The browser version
 
