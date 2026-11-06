@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="t">
+  <title id="t">Talisman</title>
+  <circle cx="200" cy="200" r="190" fill="#6F52A3"/>
+ 
+ <defs>
+  <filter id="halo" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+  <filter id="nebula" x="0" y="0" width="100%" height="100%">
+   <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="7"/>
+   <feColorMatrix type="matrix" values="0 0 0 0 0.9  0 0 0 0 0.97  0 0 0 0 1  0 0 0 1.4 -0.55"/>
+  </filter>
+  <clipPath id="win"><circle cx="200" cy="200" r="162"/></clipPath>
+  <radialGradient id="depth" cx="50%" cy="50%" r="50%">
+   <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.22" stop-color="#FFFFFF"/><stop offset="0.38" stop-color="#BFE2FB"/><stop offset="0.58" stop-color="#A9D6F7"/><stop offset="0.74" stop-color="#F6C7DA"/><stop offset="1" stop-color="#F2B5CE"/>
+  </radialGradient>
+ </defs>
+ <g clip-path="url(#win)">
+  <circle cx="200" cy="200" r="162" fill="url(#depth)"/>
+  <g fill="none" stroke="#F2FAFF" filter="url(#soft)"><circle cx="200" cy="200" r="132.8" stroke-width="3.0" opacity="0.70"/><circle cx="200" cy="200" r="106.9" stroke-width="2.6" opacity="0.61"/><circle cx="200" cy="200" r="84.2" stroke-width="2.2" opacity="0.52"/><circle cx="200" cy="200" r="64.8" stroke-width="1.8" opacity="0.43"/><circle cx="200" cy="200" r="48.6" stroke-width="1.4" opacity="0.34"/><circle cx="200" cy="200" r="35.6" stroke-width="1.0" opacity="0.25"/></g>
+  <rect x="0" y="0" width="400" height="400" filter="url(#nebula)" opacity="0.35"/>
+  <circle cx="132" cy="128" r="2.5600000000000005" fill="#FFFFFF" opacity="0.9"/><circle cx="268" cy="118" r="1.92" fill="#FFFFFF" opacity="0.9"/><circle cx="110" cy="214" r="1.7600000000000002" fill="#FFFFFF" opacity="0.9"/><circle cx="286" cy="236" r="2.4000000000000004" fill="#FFFFFF" opacity="0.9"/><circle cx="150" cy="292" r="2.08" fill="#FFFFFF" opacity="0.9"/><circle cx="258" cy="300" r="2.72" fill="#FFFFFF" opacity="0.9"/><circle cx="196" cy="64" r="1.6" fill="#FFFFFF" opacity="0.9"/><circle cx="214" cy="338" r="1.7600000000000002" fill="#FFFFFF" opacity="0.9"/>
+ </g>
+ <circle cx="200" cy="200" r="159" fill="none" stroke="#FFFFFF" stroke-width="6" opacity="0.85" filter="url(#soft)"/>
+ <g transform="translate(200 200) scale(1.12) translate(-202 -224)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="#FFFFFF" stroke-width="47.2" opacity="0.7" filter="url(#halo)"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/><path d="M212,320 L174,282"/></g>
+  <g stroke="#3B1F5C" stroke-width="30.4"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/><path d="M212,320 L174,282"/></g>
+  <g stroke="#5ED3A6" stroke-width="23.2"><path d="M212,128 L212,320"/><path d="M212,128 L180,128 C156,134 154,194 184,202 C196,205 205,202 212,196"/><path d="M212,282 L248,282"/><path d="M212,320 L174,282"/></g></g>
+</svg>
