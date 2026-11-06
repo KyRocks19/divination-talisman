@@ -19,9 +19,14 @@ import { CardImage } from "../../ui/CardImage";
 import { OracleImage } from "../../ui/OracleImage";
 import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracle";
 import type { FieldDef } from "../../core/oracle";
-import { Body, Button, Card, ChoiceRow, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
 import { HERE, THIS_DEVICE } from "../../lib/where";
+import {
+  addTagToReading, listTags, predictionsForReading, removeTagFromReading, tagsForReading, cleanTagName, MAX_TAG_LENGTH,
+  type PredictionRow, type TagRow, type TagWithCount,
+} from "../../db/predictions";
+import { OUTCOME_LABELS, dayWords } from "../../core/predictions";
 
 export default function ReadingScreen() {
   const db = useSQLiteContext();
@@ -32,6 +37,8 @@ export default function ReadingScreen() {
   const [own, setOwn] = useState<Map<string, string>>(new Map());
   const [oracle, setOracle] = useState<OracleInfo | null>(null);
   const [revealed, setRevealed] = useState<Set<number> | null>(null);
+  const [predictions, setPredictions] = useState<PredictionRow[]>([]);
+  const [tags, setTags] = useState<{ mine: TagRow[]; all: TagWithCount[] }>({ mine: [], all: [] });
 
   const load = useCallback(async () => {
     const r = await getReading(db, readingId);
@@ -42,7 +49,11 @@ export default function ReadingScreen() {
       const deck = r.reading.deck_id ? await getDeck(db, r.reading.deck_id) : null;
       setOracle({ cards, fields: deck?.fields ?? [], deckName: deck?.name ?? null });
     }
-    if (r) setRevealed((prev) => prev ?? new Set(reveal === "1" ? [] : r.pieces.map((p) => p.position)));
+    if (r) {
+      setPredictions(await predictionsForReading(db, readingId));
+      setTags({ mine: await tagsForReading(db, readingId), all: await listTags(db) });
+      setRevealed((prev) => prev ?? new Set(reveal === "1" ? [] : r.pieces.map((p) => p.position)));
+    }
   }, [db, readingId, reveal]);
 
   useFocusEffect(
@@ -111,6 +122,8 @@ export default function ReadingScreen() {
         <>
           {sensed && !sensed.skipped && <LookBack readingId={reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={load} />}
           <Notes readingId={reading.id} initial={reading.notes} />
+          <Predictions readingId={reading.id} rows={predictions} />
+          <Tags readingId={reading.id} mine={tags.mine} all={tags.all} onChange={load} />
           <Journal readingId={reading.id} entries={journal} onChange={load} />
           <ShareAndDelete data={data} oracle={oracle} />
         </>
@@ -332,6 +345,97 @@ function Notes({ readingId, initial }: { readingId: number; initial: string }) {
   );
 }
 
+function Predictions({ readingId, rows }: { readingId: number; rows: PredictionRow[] }) {
+  return (
+    <Card>
+      <SectionLabel>Predictions</SectionLabel>
+      {rows.length === 0 && <Muted>What do you expect to happen? Write it down now and choose a day to look back.</Muted>}
+      {rows.map((p) => (
+        <Pressable
+          key={p.id}
+          onPress={() => router.push(`/prediction/${p.id}`)}
+          accessibilityRole="button"
+          accessibilityHint="Opens the prediction"
+          style={{ gap: 2, paddingVertical: space.xs }}
+        >
+          <Body>{p.text}</Body>
+          <Muted>{p.outcome ? OUTCOME_LABELS[p.outcome] : p.look_back_on ? `Look back on ${dayWords(p.look_back_on)}` : "No date"}</Muted>
+        </Pressable>
+      ))}
+      <Button
+        label="Write a prediction"
+        variant="quiet"
+        onPress={() => router.push({ pathname: "/prediction/[id]", params: { id: "new", reading: String(readingId) } })}
+      />
+    </Card>
+  );
+}
+
+function Tags({ readingId, mine, all, onChange }: { readingId: number; mine: TagRow[]; all: TagWithCount[]; onChange: () => void }) {
+  const db = useSQLiteContext();
+  const t = useTokens();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const on = new Set(mine.map((m) => m.id));
+  const others = all.filter((a) => !on.has(a.id));
+  const chip = (tag: TagRow, active: boolean) => (
+    <Pressable
+      key={tag.id}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={`Tag ${tag.name}`}
+      accessibilityHint={active ? "Takes the tag off this reading" : "Puts the tag on this reading"}
+      onPress={async () => {
+        if (active) await removeTagFromReading(db, readingId, tag.id);
+        else await addTagToReading(db, readingId, tag.name);
+        onChange();
+      }}
+      style={{
+        minHeight: 40,
+        paddingHorizontal: space.md,
+        justifyContent: "center",
+        borderRadius: radius.control,
+        borderWidth: 1,
+        borderColor: active ? t.blush : t.lineStrong,
+        backgroundColor: active ? t.blush : "transparent",
+      }}
+    >
+      <Muted style={{ color: active ? t.onBlush : t.ink }}>{active ? `✓ ${tag.name}` : tag.name}</Muted>
+    </Pressable>
+  );
+  return (
+    <Card>
+      <SectionLabel>Tags</SectionLabel>
+      {mine.length === 0 && <Muted>Tags let you find readings again, such as "work" or "family".</Muted>}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+        {mine.map((m) => chip(m, true))}
+        {others.map((o) => chip(o, false))}
+      </View>
+      <Field
+        label="New tag"
+        value={draft}
+        onChangeText={(v) => (setDraft(v), setError(null))}
+        maxLength={MAX_TAG_LENGTH}
+        autoCapitalize="none"
+        returnKeyType="done"
+      />
+      <Button
+        label="Add the tag"
+        variant="quiet"
+        disabled={!draft.trim()}
+        onPress={async () => {
+          const name = cleanTagName(draft);
+          if (!name) return setError(`A tag can be up to ${MAX_TAG_LENGTH} characters.`);
+          await addTagToReading(db, readingId, name);
+          setDraft("");
+          onChange();
+        }}
+      />
+      {error && <ErrorNote>{error}</ErrorNote>}
+    </Card>
+  );
+}
+
 function Journal({ readingId, entries, onChange }: { readingId: number; entries: FullReading["journal"]; onChange: () => void }) {
   const db = useSQLiteContext();
   const [draft, setDraft] = useState("");
@@ -405,7 +509,7 @@ function ShareAndDelete({ data, oracle }: { data: FullReading; oracle: OracleInf
         label="Delete this reading"
         variant="danger"
         onPress={() =>
-          Alert.alert("Delete this reading?", `Its cards, what you sensed, its notes and its journal entries are deleted from ${THIS_DEVICE}. This cannot be undone.`, [
+          Alert.alert("Delete this reading?", `Its cards, what you sensed, its notes, journal entries and predictions are deleted from ${THIS_DEVICE}. This cannot be undone.`, [
             { text: "Cancel", style: "cancel" },
             {
               text: "Delete",

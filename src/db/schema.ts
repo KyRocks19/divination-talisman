@@ -144,6 +144,17 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE reading_pieces ADD COLUMN piece_name TEXT;
   CREATE INDEX oracle_cards_deck ON oracle_cards (deck_id);
   `,
+
+  // 3: predictions and tags. A prediction keeps the words first written (original_text, never changed) beside the
+  // words as reworded (text); outcome is the person's own 'yes', 'partly', 'no' or 'unclear', with their note.
+  // The indexes serve the look-back list and the tag filter in Record.
+  `
+  ALTER TABLE predictions ADD COLUMN original_text TEXT;
+  ALTER TABLE predictions ADD COLUMN outcome_note TEXT;
+  CREATE INDEX predictions_reading ON predictions (reading_id);
+  CREATE INDEX predictions_look_back ON predictions (look_back_on);
+  CREATE INDEX reading_tags_tag ON reading_tags (tag_id);
+  `,
 ];
 
 /**

@@ -1,10 +1,11 @@
 import "../lib/alert-polyfill";
-import { Suspense } from "react";
-import { Stack } from "expo-router";
+import { Suspense, useCallback, useEffect } from "react";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SQLiteProvider } from "expo-sqlite";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import { migrate } from "../db/queries";
 import { LockGate } from "../lib/lock";
+import { setUpReminders, syncReminders, useReminderTaps } from "../lib/reminders";
 import { ON_WEB } from "../lib/where";
 import { Loading } from "../ui/kit";
 import { useIsDark, useTokens } from "../ui/theme";
@@ -13,6 +14,19 @@ import { useIsDark, useTokens } from "../ui/theme";
 // itch.io serves every HTML game from one web address, and their browser storage is shared.
 export const DATABASE_NAME = ON_WEB ? "divination-talisman-readings.db" : "talisman.db";
 
+setUpReminders();
+
+/** Sets the phone's reminders once the database is open (never asking for permission here), and opens a tapped one. */
+function Reminders() {
+  const db = useSQLiteContext();
+  useEffect(() => {
+    syncReminders(db);
+  }, [db]);
+  const open = useCallback((url: string) => router.push(url as never), []);
+  useReminderTaps(open);
+  return null;
+}
+
 export default function RootLayout() {
   const t = useTokens();
   const dark = useIsDark();
@@ -20,6 +34,7 @@ export default function RootLayout() {
     <Suspense fallback={<Loading />}>
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={async (db) => void (await migrate(db))} useSuspense>
         <StatusBar style={dark ? "light" : "dark"} />
+        <Reminders />
         <LockGate>
           <Stack
             screenOptions={{
@@ -39,6 +54,9 @@ export default function RootLayout() {
             <Stack.Screen name="oracle/[deckId]" options={{ title: "Deck" }} />
             <Stack.Screen name="oracle/deck-edit" options={{ title: "Deck" }} />
             <Stack.Screen name="oracle/card" options={{ title: "Card" }} />
+            <Stack.Screen name="predictions" options={{ title: "Predictions" }} />
+            <Stack.Screen name="prediction/[id]" options={{ title: "Prediction" }} />
+            <Stack.Screen name="tags" options={{ title: "Tags" }} />
           </Stack>
         </LockGate>
       </SQLiteProvider>

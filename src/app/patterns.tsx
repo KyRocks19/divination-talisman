@@ -9,6 +9,8 @@ import { getCardById } from "../core/cards";
 import { CONFIDENCE_LABELS, FITS, FIT_LABELS, MIN_FITS_FOR_AVERAGE } from "../core/guess-core";
 import { recurringCards, summariseSensed, type CardCount, type SensedSummary } from "../core/patterns";
 import { patternRows } from "../db/queries";
+import { OUTCOMES, OUTCOME_LABELS, countPredictions, localDay, type PredictionCounts } from "../core/predictions";
+import { listPredictions } from "../db/predictions";
 import { dayText } from "../lib/dates";
 import { Body, Card, Loading, Muted, Screen, SectionLabel, Strong } from "../ui/kit";
 import { radius, space, useTokens } from "../ui/theme";
@@ -17,11 +19,15 @@ import { HERE } from "../lib/where";
 export default function Patterns() {
   const db = useSQLiteContext();
   const t = useTokens();
-  const [data, setData] = useState<{ readings: number; sensed: SensedSummary; cards: CardCount[] } | null>(null);
+  const [data, setData] = useState<{ readings: number; sensed: SensedSummary; cards: CardCount[]; predictions: PredictionCounts } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      patternRows(db).then((r) => setData({ readings: r.readings, sensed: summariseSensed(r.sensed), cards: recurringCards(r.pieces) }));
+      (async () => {
+        const r = await patternRows(db);
+        const predictions = countPredictions(await listPredictions(db), localDay(new Date()));
+        setData({ readings: r.readings, sensed: summariseSensed(r.sensed), cards: recurringCards(r.pieces), predictions });
+      })();
     }, [db]),
   );
 
@@ -75,6 +81,27 @@ export default function Patterns() {
           ))}
         </Card>
       )}
+
+      <SectionLabel>Predictions</SectionLabel>
+      <Card onPress={() => router.push("/predictions")} accessibilityHint="Opens your predictions">
+        {data.predictions.total === 0 ? (
+          <Muted>After a reading, write what you expect to happen. When you look back, the counts show here.</Muted>
+        ) : (
+          <>
+            <Body>
+              You wrote {data.predictions.total} {data.predictions.total === 1 ? "prediction" : "predictions"}.
+              {data.predictions.due ? ` ${data.predictions.due} ready to look back on.` : ""}
+              {data.predictions.waiting ? ` ${data.predictions.waiting} waiting for their day.` : ""}
+              {data.predictions.noDate ? ` ${data.predictions.noDate} with no date.` : ""}
+            </Body>
+            {OUTCOMES.map((o) => (
+              <Muted key={o}>
+                {OUTCOME_LABELS[o]}: {data.predictions.outcomes[o]}
+              </Muted>
+            ))}
+          </>
+        )}
+      </Card>
 
       <SectionLabel>Cards that keep coming up</SectionLabel>
       {data.cards.length === 0 ? (

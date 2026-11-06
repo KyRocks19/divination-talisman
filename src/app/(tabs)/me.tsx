@@ -12,6 +12,7 @@ import { getSettings, migrate, setSetting, type Settings } from "../../db/querie
 import { dayTimeText } from "../../lib/dates";
 import { confirmWithLock, lockIsAvailable } from "../../lib/lock";
 import { handOverFile, readPickedFile } from "../../lib/save-file";
+import { REMINDERS_AVAILABLE, syncReminders } from "../../lib/reminders";
 import { HERE, THIS_DEVICE, ON_WEB } from "../../lib/where";
 import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
 
@@ -32,6 +33,16 @@ export default function Me() {
   async function change<K extends keyof Settings>(key: K, value: Settings[K]) {
     await setSetting(db, key, value);
     setS(await getSettings(db));
+  }
+
+  async function toggleReminder(key: "lookBackReminders" | "backupReminders", on: boolean) {
+    setError(null);
+    setNote(null);
+    await change(key, on);
+    const ok = await syncReminders(db, { ask: on });
+    if (on && !ok) {
+      setError("The phone is not allowing reminders for this app. You can allow them in the phone's settings, under Notifications.");
+    }
   }
 
   async function toggleLock(on: boolean) {
@@ -56,6 +67,7 @@ export default function Me() {
         return;
       }
       await change("lastBackupAt", when.toISOString());
+      await syncReminders(db);
       const missing = made.missing
         ? ` ${made.missing} ${made.missing === 1 ? "card photo is" : "card photos are"} no longer in your photo library, so ${made.missing === 1 ? "it is" : "they are"} not in the file.`
         : "";
@@ -94,6 +106,7 @@ export default function Me() {
             try {
               await restoreWithPictures(db, checked.backup, read.files);
               await migrate(db);
+              await syncReminders(db);
               setS(await getSettings(db));
               setNote(`Your backup is back ${HERE}.`);
             } catch (e) {
@@ -161,6 +174,29 @@ export default function Me() {
         />
       </Card>
 
+        </>
+      )}
+
+      {REMINDERS_AVAILABLE && (
+        <>
+          <SectionLabel>Reminders</SectionLabel>
+          <Card>
+            <ToggleRow
+              label="Look-back days"
+              help="On the day you chose to look back on a prediction, the phone reminds you at 9 in the morning."
+              value={s.lookBackReminders}
+              onChange={(v) => toggleReminder("lookBackReminders", v)}
+            />
+            <Divider />
+            <ToggleRow
+              label="Backups"
+              help="30 days after your last backup file, the phone reminds you to make a new one."
+              value={s.backupReminders}
+              onChange={(v) => toggleReminder("backupReminders", v)}
+            />
+            <Muted>Reminders are set on this phone. They never show your questions or what you wrote, and nothing is sent anywhere.</Muted>
+            <Button label="Open the phone's settings" variant="text" onPress={() => Linking.openSettings().catch(() => undefined)} />
+          </Card>
         </>
       )}
 
