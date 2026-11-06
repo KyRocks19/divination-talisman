@@ -21,8 +21,8 @@
   
   
   <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" fill="#C8B6E2" opacity="0.9" filter="url(#halo)" transform="translate(200 210) scale(1.25) translate(-200 -210)"/>
-  <ellipse cx="200" cy="432" rx="180" ry="17" fill="#8E6845"/>
-  <ellipse cx="200" cy="427" rx="180" ry="17" fill="url(#woodBase)"/>
+  <ellipse cx="200" cy="429" rx="104" ry="15" fill="#8E6845"/>
+  <ellipse cx="200" cy="424" rx="104" ry="15" fill="url(#woodBase)"/>
   <path d="M106,386 C104,150 136,24 200,24 C264,24 296,150 294,386 Q293,410 268,410 L132,410 Q107,410 106,386 Z" fill="url(#wood)"/>
   <path d="M106,386 C104,150 136,24 200,24 C264,24 296,150 294,386 Q293,410 268,410 L132,410 Q107,410 106,386 Z" fill="none" stroke="#FFF3E2" stroke-width="3" opacity="0.5" transform="translate(-2 -2)"/>
   <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" fill="none" stroke="#8E6845" stroke-width="8" opacity="0.7"/>

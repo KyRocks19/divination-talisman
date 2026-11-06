@@ -21,7 +21,7 @@
   
   
   <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" fill="#C8B6E2" opacity="0.9" filter="url(#halo)" transform="translate(200 210) scale(1.25) translate(-200 -210)"/>
-  <ellipse cx="200" cy="427" rx="180" ry="17" fill="#C9A27E" stroke="#7A5638" stroke-width="5"/>
+  <ellipse cx="200" cy="424" rx="104" ry="15" fill="#C9A27E" stroke="#7A5638" stroke-width="5"/>
   <path d="M106,386 C104,150 136,24 200,24 C264,24 296,150 294,386 Q293,410 268,410 L132,410 Q107,410 106,386 Z" fill="#C9A27E" stroke="#7A5638" stroke-width="5" stroke-linejoin="round"/>
   <path d="M136,370 C134,160 160,56 200,56 C240,56 266,160 264,370 Q200,392 136,370 Z" fill="url(#lavGlow)" stroke="#7A5638" stroke-width="4" stroke-linejoin="round"/>
   <g clip-path="url(#innerClip)"><ellipse cx="205" cy="220" rx="55" ry="110" fill="#FFFFFF" opacity="0.35" filter="url(#innerLight)"/></g>
