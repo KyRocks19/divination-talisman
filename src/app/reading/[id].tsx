@@ -246,7 +246,7 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, tool, chang
               reversed={reversed}
             />
           ) : (
-            <Muted>{piece.piece_name ?? piece.piece_id}</Muted>
+            <Glyph glyph={{ kind: "label", text: piece.piece_name ?? piece.piece_id }} size={Math.min(pictureWidth, 150)} faceDown={!shown} />
           )
         ) : oracle ? (
           <OracleImage
@@ -278,7 +278,7 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, tool, chang
                   <Body>{oracleCard.values[f.id]}</Body>
                 </View>
               ))}
-          {own ? (
+          {tool && !toolPiece ? null : own ? (
             <View style={{ gap: 2 }}>
               <SectionLabel>Your meaning</SectionLabel>
               <Body>{own}</Body>

@@ -54,6 +54,16 @@ export default function Tools() {
         </Card>
       ))}
 
+      <SectionLabel>Practice and notes</SectionLabel>
+      <Card onPress={() => router.push("/signs")} accessibilityHint="Opens your signs and dreams">
+        <Strong>Signs and dreams</Strong>
+        <Muted>Write down a sign you noticed or a dream you had, to look back on later.</Muted>
+      </Card>
+      <Card onPress={() => router.push("/blind")} accessibilityHint="Opens blind-target practice">
+        <Strong>Blind-target practice</Strong>
+        <Muted>Write an impression of a hidden target, then see which of four it was.</Muted>
+      </Card>
+
       <SectionLabel>Learn</SectionLabel>
       <Card onPress={() => router.push("/library")} accessibilityHint="Opens the 78 cards">
         <Strong>Card library</Strong>

@@ -17,7 +17,7 @@ function seq(...values: number[]) {
 test("every tool has pieces with unique ids that can be looked up again", () => {
   for (const tool of TOOLS) {
     const pieces = tool.pieces();
-    assert.ok(pieces.length > 0, tool.id);
+    assert.ok(pieces.length > 0 || tool.kind === "lots", tool.id);
     assert.equal(new Set(pieces.map((p) => p.id)).size, pieces.length, `${tool.id}: ids are unique`);
     for (const p of pieces) assert.deepEqual(tool.piece(p.id), p, `${tool.id}: ${p.id}`);
     assert.equal(getTool(tool.id), tool);

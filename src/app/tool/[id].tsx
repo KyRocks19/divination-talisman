@@ -48,6 +48,8 @@ export default function ToolScreen() {
       <Body>{tool.blurb}</Body>
       <Button label="Start a reading" onPress={() => router.push({ pathname: "/reading/new", params: { tool: tool.id } })} />
 
+      {pieces.length > 0 && (
+        <>
       <SectionLabel>
         Your meanings ({written} of {pieces.length})
       </SectionLabel>
@@ -69,6 +71,8 @@ export default function ToolScreen() {
           </Pressable>
         ))}
       </View>
+        </>
+      )}
 
       <Button label={sources ? "Hide where this comes from" : "Where this comes from"} variant="quiet" onPress={() => setSources(!sources)} />
       {sources && (

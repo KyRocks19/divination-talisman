@@ -55,6 +55,13 @@ function Inner({ glyph, size }: { glyph: GlyphData; size: number }) {
       </Svg>
     );
   }
+  if (glyph.kind === "label") {
+    return (
+      <Text accessible={false} numberOfLines={6} style={{ color: t.inkStrong, fontSize: Math.max(13, size * 0.12), fontWeight: "600", textAlign: "center", padding: size * 0.08 }}>
+        {glyph.text}
+      </Text>
+    );
+  }
   if (glyph.kind === "text") {
     return (
       <Text

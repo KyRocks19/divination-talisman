@@ -17,6 +17,7 @@ import type { Spread } from "./spreads";
 /** How a piece is drawn: strokes in a 60 by 100 box (runes, ogham), a short text (cards, dice), six lines (I Ching), or four rows of dots (geomancy). */
 export type Glyph =
   | { kind: "strokes"; strokes: string[] }
+  | { kind: "label"; text: string }
   | { kind: "text"; text: string; red?: boolean }
   | { kind: "lines"; lines: boolean[]; changing?: number[] }
   | { kind: "dots"; lines: number[] };
@@ -32,7 +33,7 @@ export interface PieceInfo {
   traditional: { label: string; text: string }[];
 }
 
-export type ToolKind = "draw" | "throw" | "iching" | "geomancy";
+export type ToolKind = "draw" | "throw" | "iching" | "geomancy" | "lots" | "pendulum";
 
 export interface ToolDef {
   id: string;
@@ -130,6 +131,54 @@ const figure = (id: string): PieceInfo | undefined => {
   return { id: f.id, name: f.latin, subtitle: `"${f.english}"`, glyph: { kind: "dots", lines: f.lines }, canReverse: false, traditional: [] };
 };
 
+// ── Pendulum ────────────────────────────────────────────────────────────────────────────────────────
+
+/** The five swings every person starts with (the desktop app's BUILTIN_SWINGS), with the same ids for meanings. */
+export const SWINGS: { id: string; name: string; words: string; mark: string }[] = [
+  { id: "swing-line-0", name: "Back and forth", words: "Swings along a line, towards you and away.", mark: "↕" },
+  { id: "swing-line-90", name: "Side to side", words: "Swings along a line, left and right.", mark: "↔" },
+  { id: "swing-circle_cw", name: "Circle clockwise", words: "Goes round in a circle, clockwise as seen from above.", mark: "↻" },
+  { id: "swing-circle_ccw", name: "Circle counter-clockwise", words: "Goes round in a circle, counter-clockwise as seen from above.", mark: "↺" },
+  { id: "swing-still", name: "Still", words: "Does not move.", mark: "·" },
+];
+
+const swing = (id: string): PieceInfo | undefined => {
+  const s = SWINGS.find((x) => x.id === id);
+  return s && { id: s.id, name: s.name, subtitle: s.words, glyph: { kind: "text", text: s.mark }, canReverse: false, traditional: [] };
+};
+
+// ── Lots ────────────────────────────────────────────────────────────────────────────────────────────
+
+export const MAX_LOTS = 200;
+export const MAX_LOT_NAME = 200;
+export const MAX_DRAW_LOTS = 24;
+
+/** The names in a typed list, one to a line: trimmed, blank lines and repeats (ignoring case) dropped, long ones left out. */
+export function lotNames(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const name = raw.replace(/\s+/g, " ").trim();
+    if (!name || name.length > MAX_LOT_NAME || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+    if (out.length >= MAX_LOTS) break;
+  }
+  return out;
+}
+
+/** Draws `count` different lots. Each lot's id is its name in lower case, so the same lot is counted together in Patterns. */
+export function drawLots(names: string[], count: number, rng: Rng): DrawnPiece[] {
+  const n = Math.max(1, Math.min(MAX_DRAW_LOTS, names.length, Math.floor(count)));
+  return shuffleTake(names, n, rng).map((name, i) => ({
+    position: i,
+    positionName: n === 1 ? "The lot" : `Lot ${i + 1}`,
+    pieceId: `lot:${name.toLowerCase()}`,
+    pieceName: name,
+    reversed: false,
+  }));
+}
+
 // ── The list ────────────────────────────────────────────────────────────────────────────────────────
 
 export const TOOLS: ToolDef[] = [
@@ -201,6 +250,28 @@ export const TOOLS: ToolDef[] = [
     pieces: () => FIGURES.map((f) => figure(f.id)!),
     piece: figure,
     pieceWord: "figure",
+  },
+  {
+    id: "pendulum",
+    name: "Pendulum",
+    blurb: "Ask, swing your own pendulum, and note how it moved. What each swing means is yours to say.",
+    kind: "pendulum",
+    traditionalLabel: null,
+    sources: ["The app gives no meaning to any swing: many people first ask their pendulum to show its yes and its no."],
+    pieces: () => SWINGS.map((x) => swing(x.id)!),
+    piece: swing,
+    pieceWord: "swing",
+  },
+  {
+    id: "lots",
+    name: "Lots",
+    blurb: "Write a list of names, people, places or choices, and draw from it without looking.",
+    kind: "lots",
+    traditionalLabel: null,
+    sources: ["The app gives no meaning to any lot: you decide what each one stands for."],
+    pieces: () => [],
+    piece: () => undefined,
+    pieceWord: "lot",
   },
 ];
 
