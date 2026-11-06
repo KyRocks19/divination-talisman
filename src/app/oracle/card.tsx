@@ -13,6 +13,7 @@ import { Body, Button, Card, ErrorNote, Field, Loading, Muted, Screen, SectionLa
 import { OracleImage } from "../../ui/OracleImage";
 import { OwnMeaning } from "../../ui/OwnMeaning";
 import { space } from "../../ui/theme";
+import { HERE } from "../../lib/where";
 
 export default function OracleCardScreen() {
   const db = useSQLiteContext();
@@ -78,7 +79,7 @@ export default function OracleCardScreen() {
   if (!deck) {
     return (
       <Screen>
-        <Body>This card or its deck is no longer on this phone.</Body>
+        <Body>This card or its deck is no longer {HERE}.</Body>
       </Screen>
     );
   }

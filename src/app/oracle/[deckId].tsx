@@ -8,6 +8,7 @@ import { getDeck, listCards, type Deck, type OracleCard } from "../../db/oracle"
 import { Body, Button, Loading, Muted, Screen } from "../../ui/kit";
 import { OracleImage } from "../../ui/OracleImage";
 import { space, useTokens } from "../../ui/theme";
+import { HERE } from "../../lib/where";
 
 const COLUMNS = 3;
 
@@ -37,7 +38,7 @@ export default function DeckScreen() {
   if (deck === null) {
     return (
       <Screen>
-        <Body>This deck is no longer on this phone.</Body>
+        <Body>This deck is no longer {HERE}.</Body>
       </Screen>
     );
   }

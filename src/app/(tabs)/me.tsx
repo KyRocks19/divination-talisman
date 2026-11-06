@@ -5,14 +5,14 @@ import { Alert, Linking } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
-import * as Sharing from "expo-sharing";
-import { File, Paths } from "expo-file-system";
 import { CRISIS_LINES } from "../../core/crisis-lines";
 import { backupFileName, checkBackup, readBackupFile } from "../../db/backup";
 import { buildBackupZip, restoreWithPictures } from "../../lib/backup-files";
 import { getSettings, migrate, setSetting, type Settings } from "../../db/queries";
 import { dayTimeText } from "../../lib/dates";
 import { confirmWithLock, lockIsAvailable } from "../../lib/lock";
+import { handOverFile, readPickedFile } from "../../lib/save-file";
+import { HERE, THIS_DEVICE, ON_WEB } from "../../lib/where";
 import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
 
 export default function Me() {
@@ -51,20 +51,15 @@ export default function Me() {
     try {
       const when = new Date();
       const made = await buildBackupZip(db, when);
-      const file = new File(Paths.cache, backupFileName(when));
-      if (file.exists) file.delete();
-      file.create();
-      file.write(made.zip);
-      if (!(await Sharing.isAvailableAsync())) {
+      if (!(await handOverFile(backupFileName(when), made.zip))) {
         setError("This phone cannot open the save or share sheet, so the backup file could not be handed over.");
         return;
       }
-      await Sharing.shareAsync(file.uri, { mimeType: "application/zip", UTI: "public.zip-archive", dialogTitle: "Save your backup" });
       await change("lastBackupAt", when.toISOString());
       const missing = made.missing
         ? ` ${made.missing} ${made.missing === 1 ? "card photo is" : "card photos are"} no longer in your photo library, so ${made.missing === 1 ? "it is" : "they are"} not in the file.`
         : "";
-      setNote(`Backup file made. Keep it somewhere that is not only this phone, such as Files, iCloud Drive or Google Drive.${missing}`);
+      setNote(`Backup file made. Keep it somewhere that is not only ${THIS_DEVICE}, such as Files, iCloud Drive or Google Drive.${missing}`);
     } catch (e) {
       setError(`The backup could not be made: ${(e as Error).message}`);
     }
@@ -77,7 +72,7 @@ export default function Me() {
     if (picked.canceled || !picked.assets?.[0]) return;
     let read: { text: string; files: Record<string, Uint8Array> };
     try {
-      read = readBackupFile(await new File(picked.assets[0].uri).bytes());
+      read = readBackupFile(await readPickedFile(picked.assets[0].uri));
     } catch {
       setError("This file is not a Divination Talisman backup.");
       return;
@@ -88,8 +83,8 @@ export default function Me() {
       return;
     }
     Alert.alert(
-      "Replace everything on this phone?",
-      `This backup is from ${dayTimeText(checked.backup.created)} and holds ${checked.rows} items. Everything now on this phone will be replaced by it. This cannot be undone.`,
+      `Replace everything ${HERE}?`,
+      `This backup is from ${dayTimeText(checked.backup.created)} and holds ${checked.rows} items. Everything now ${HERE} will be replaced by it. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -100,7 +95,7 @@ export default function Me() {
               await restoreWithPictures(db, checked.backup, read.files);
               await migrate(db);
               setS(await getSettings(db));
-              setNote("Your backup is back on this phone.");
+              setNote(`Your backup is back ${HERE}.`);
             } catch (e) {
               setError(`Nothing was changed. The backup could not be put back: ${(e as Error).message}`);
             }
@@ -124,6 +119,19 @@ export default function Me() {
         <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
       </Card>
 
+{ON_WEB ? (
+        <>
+      <SectionLabel>Photos for your oracle cards</SectionLabel>
+      <Card>
+        <Muted>
+          In the browser version, each photo is kept as a smaller copy with its card, in this browser. A browser cannot link to your photo
+          library.
+        </Muted>
+      </Card>
+
+        </>
+      ) : (
+        <>
       <SectionLabel>Photos for your oracle cards</SectionLabel>
       <Card>
         <ChoiceRow
@@ -153,11 +161,22 @@ export default function Me() {
         />
       </Card>
 
+        </>
+      )}
+
       <SectionLabel>Backup</SectionLabel>
       <Card>
         <Body>
-          Your readings are kept only on this phone. If the phone is lost or the app is deleted, they are gone, unless you have a backup file.
+          {ON_WEB
+            ? "Your readings are kept only in this browser, on this device. If the browser's data for this page is cleared, they are gone, unless you have a backup file."
+            : "Your readings are kept only on this phone. If the phone is lost or the app is deleted, they are gone, unless you have a backup file."}
         </Body>
+        {ON_WEB && (
+          <Muted>
+            On an iPhone or iPad, Safari can clear what a website keeps when you have not opened it for 7 days. Open the app at least once a
+            week, and make a backup file often.
+          </Muted>
+        )}
         <Muted>{s.lastBackupAt ? `Last backup: ${dayTimeText(s.lastBackupAt)}` : "No backup made yet."}</Muted>
         <Button label="Make a backup file" onPress={backUp} />
         <Button label="Restore from a backup file" variant="quiet" onPress={restore} />
@@ -168,8 +187,9 @@ export default function Me() {
       <SectionLabel>Privacy</SectionLabel>
       <Card>
         <Body>
-          Nothing leaves this phone. The app has no account, no server, no analytics and no crash reports, and it makes no connections. A
-          backup file goes only where you send it.
+          {ON_WEB
+            ? "Nothing you write leaves this browser. The app has no account, no server, no analytics and no crash reports, and once the page has loaded it makes no connections. A backup file goes only where you send it. itch.io, which hosts the page, has its own privacy policy."
+            : "Nothing leaves this phone. The app has no account, no server, no analytics and no crash reports, and it makes no connections. A backup file goes only where you send it."}
         </Body>
       </Card>
 
