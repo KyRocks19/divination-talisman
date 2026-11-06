@@ -3,6 +3,8 @@
 // Screens use these names, never a hex value of their own (the desktop's design-system rule 1).
 
 import { useColorScheme } from "react-native";
+import { useComfort } from "./comfort";
+import { THEMES } from "./themes-data";
 
 export interface Tokens {
   canvas: string;
@@ -28,6 +30,8 @@ export interface Tokens {
   bar: string;
   barInk: string;
   barActive: string;
+  /** The title and back arrow on the top bar. */
+  barTitle: string;
 }
 
 const dark: Tokens = {
@@ -54,6 +58,7 @@ const dark: Tokens = {
   bar: "#12122a",
   barInk: "#9aa1b3",
   barActive: "#fdccf5",
+  barTitle: "#f0e0ff",
 };
 
 const light: Tokens = {
@@ -80,15 +85,29 @@ const light: Tokens = {
   bar: "#ffffff",
   barInk: "#655b78",
   barActive: "#8a1470",
+  barTitle: "#3b0764",
 };
 
 export const radius = { card: 12, control: 8 } as const;
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 
+/** The app's own two looks and the desktop's ready-made themes, by the id kept in the comfort choices. */
+export function tokensFor(colours: string, phoneIsLight: boolean): { tokens: Tokens; light: boolean } {
+  if (colours === "dark") return { tokens: dark, light: false };
+  if (colours === "light") return { tokens: light, light: true };
+  const theme = THEMES.find((th) => th.id === colours);
+  if (theme) return { tokens: theme.tokens, light: theme.light };
+  return phoneIsLight ? { tokens: light, light: true } : { tokens: dark, light: false };
+}
+
 export function useTokens(): Tokens {
-  return useColorScheme() === "light" ? light : dark;
+  const scheme = useColorScheme();
+  const { comfort } = useComfort();
+  return tokensFor(comfort.colours, scheme === "light").tokens;
 }
 
 export function useIsDark(): boolean {
-  return useColorScheme() !== "light";
+  const scheme = useColorScheme();
+  const { comfort } = useComfort();
+  return !tokensFor(comfort.colours, scheme === "light").light;
 }

@@ -221,6 +221,24 @@ export async function deleteJournalEntry(db: Db, id: number): Promise<void> {
   await db.runAsync("DELETE FROM journal_entries WHERE id = ?", [id]);
 }
 
+/** The entries about one reading, or, for null, the entries about no reading; newest first. */
+export async function listJournal(db: Db, readingId: number | null, limit = 100): Promise<JournalRow[]> {
+  if (readingId === null) {
+    return db.getAllAsync<JournalRow>("SELECT * FROM journal_entries WHERE reading_id IS NULL ORDER BY created_at DESC, id DESC LIMIT ?", [limit]);
+  }
+  return db.getAllAsync<JournalRow>("SELECT * FROM journal_entries WHERE reading_id = ? ORDER BY created_at DESC, id DESC LIMIT ?", [readingId, limit]);
+}
+
+/** A setting kept as plain text (such as the comfort choices, or the last list of lots), or null. */
+export async function getTextSetting(db: Db, key: string): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = ?", [key]);
+  return row?.value ?? null;
+}
+
+export async function setTextSetting(db: Db, key: string, value: string): Promise<void> {
+  await db.runAsync("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [key, value]);
+}
+
 // ── The person's own meanings, with history ─────────────────────────────────────────────────────────
 
 export type Orientation = "upright" | "reversed";

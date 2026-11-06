@@ -6,20 +6,30 @@ import {
   ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View,
   type PressableProps, type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
 } from "react-native";
+import { useGap, useType } from "./comfort";
+import { TabSwipe } from "./TabSwipe";
 import { radius, space, useTokens } from "./theme";
 
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const t = useTokens();
-  if (!scroll) return <View style={{ flex: 1, backgroundColor: t.canvas, padding: space.lg }}>{children}</View>;
+  const gap = useGap();
+  if (!scroll)
+    return (
+      <TabSwipe>
+        <View style={{ flex: 1, backgroundColor: t.canvas, padding: space.lg }}>{children}</View>
+      </TabSwipe>
+    );
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: t.canvas }}
-      contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl * 2, gap: space.lg }}
-      keyboardShouldPersistTaps="handled"
-      contentInsetAdjustmentBehavior="automatic"
-    >
-      {children}
-    </ScrollView>
+    <TabSwipe>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: t.canvas }}
+        contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl * 2, gap: gap(space.lg) }}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {children}
+      </ScrollView>
+    </TabSwipe>
   );
 }
 
@@ -34,8 +44,9 @@ export function Loading() {
 
 export function Title({ children }: { children: ReactNode }) {
   const t = useTokens();
+  const type = useType();
   return (
-    <Text accessibilityRole="header" style={{ color: t.heading, fontSize: 26, fontWeight: "700" }}>
+    <Text accessibilityRole="header" style={{ color: t.heading, ...type({ fontSize: 26, bold: true }) }}>
       {children}
     </Text>
   );
@@ -43,8 +54,12 @@ export function Title({ children }: { children: ReactNode }) {
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   const t = useTokens();
+  const type = useType();
   return (
-    <Text accessibilityRole="header" style={{ color: t.inkFaint, fontSize: 13, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }}>
+    <Text
+      accessibilityRole="header"
+      style={{ color: t.inkFaint, ...type({ fontSize: 13, bold: true, letterSpacing: 0.8 }), textTransform: "uppercase" }}
+    >
       {children}
     </Text>
   );
@@ -52,29 +67,39 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 
 export function Body({ style, ...rest }: TextProps) {
   const t = useTokens();
-  return <Text {...rest} style={[{ color: t.ink, fontSize: 16, lineHeight: 23 }, style]} />;
+  const type = useType();
+  return <Text {...rest} style={[{ color: t.ink, ...type({ fontSize: 16, lineHeight: 23 }) }, style]} />;
 }
 
 export function Muted({ style, ...rest }: TextProps) {
   const t = useTokens();
-  return <Text {...rest} style={[{ color: t.inkMuted, fontSize: 14, lineHeight: 20 }, style]} />;
+  const type = useType();
+  return <Text {...rest} style={[{ color: t.inkMuted, ...type({ fontSize: 14, lineHeight: 20 }) }, style]} />;
 }
 
 export function Strong({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const t = useTokens();
-  return <Text style={[{ color: t.inkStrong, fontSize: 17, fontWeight: "600" }, style]}>{children}</Text>;
+  const type = useType();
+  return <Text style={[{ color: t.inkStrong, ...type({ fontSize: 17, bold: "semi" }) }, style]}>{children}</Text>;
 }
 
 export function ErrorNote({ children }: { children: ReactNode }) {
   const t = useTokens();
+  const type = useType();
   return (
-    <Text accessibilityRole="alert" style={{ color: t.danger, fontSize: 15 }}>
+    <Text accessibilityRole="alert" style={{ color: t.danger, ...type({ fontSize: 15 }) }}>
       {children}
     </Text>
   );
 }
 
-export function Card({ children, onPress, style, accessibilityLabel, accessibilityHint }: {
+export function Card({
+  children,
+  onPress,
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+}: {
   children: ReactNode;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -82,7 +107,15 @@ export function Card({ children, onPress, style, accessibilityLabel, accessibili
   accessibilityHint?: string;
 }) {
   const t = useTokens();
-  const base: ViewStyle = { backgroundColor: t.surface, borderColor: t.line, borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.sm };
+  const gap = useGap();
+  const base: ViewStyle = {
+    backgroundColor: t.surface,
+    borderColor: t.line,
+    borderWidth: 1,
+    borderRadius: radius.card,
+    padding: space.lg,
+    gap: gap(space.sm),
+  };
   if (!onPress) return <View style={[base, style]}>{children}</View>;
   return (
     <Pressable
@@ -99,7 +132,14 @@ export function Card({ children, onPress, style, accessibilityLabel, accessibili
 
 type Variant = "primary" | "purple" | "quiet" | "text" | "danger";
 
-export function Button({ label, onPress, variant = "primary", disabled, accessibilityHint, style }: {
+export function Button({
+  label,
+  onPress,
+  variant = "primary",
+  disabled,
+  accessibilityHint,
+  style,
+}: {
   label: string;
   onPress: () => void;
   variant?: Variant;
@@ -108,6 +148,7 @@ export function Button({ label, onPress, variant = "primary", disabled, accessib
   style?: PressableProps["style"];
 }) {
   const t = useTokens();
+  const type = useType();
   const look: Record<Variant, { bg: string; fg: string; border: string }> = {
     primary: { bg: t.blush, fg: t.onBlush, border: t.blush },
     purple: { bg: t.accent, fg: t.onAccent, border: t.accent },
@@ -139,44 +180,54 @@ export function Button({ label, onPress, variant = "primary", disabled, accessib
         typeof style === "function" ? style(state) : style,
       ]}
     >
-      <Text style={{ color: l.fg, fontSize: 16, fontWeight: "600", textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: l.fg, ...type({ fontSize: 16, bold: "semi" }), textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
 
 export function Field({ label, help, ...input }: TextInputProps & { label: string; help?: string }) {
   const t = useTokens();
+  const type = useType();
   return (
     <View style={{ gap: space.xs }}>
-      <Text style={{ color: t.inkStrong, fontSize: 15, fontWeight: "600" }}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        accessibilityHint={help}
-        placeholderTextColor={t.inkFaint}
-        {...input}
-        style={[
-          {
-            backgroundColor: t.field,
-            borderColor: t.lineStrong,
-            borderWidth: 1,
-            borderRadius: radius.control,
-            color: t.ink,
-            fontSize: 16,
-            paddingHorizontal: space.md,
-            paddingVertical: space.md,
-            minHeight: input.multiline ? 110 : 48,
-            textAlignVertical: input.multiline ? "top" : "center",
-          },
-          input.style,
-        ]}
-      />
+      <Text style={{ color: t.inkStrong, ...type({ fontSize: 15, bold: "semi" }) }}>{label}</Text>
+      {/* The field keeps its own touches, so dragging to select words never swipes to another tab (src/ui/TabSwipe.tsx). */}
+      <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false}>
+        <TextInput
+          accessibilityLabel={label}
+          accessibilityHint={help}
+          placeholderTextColor={t.inkFaint}
+          {...input}
+          style={[
+            {
+              backgroundColor: t.field,
+              borderColor: t.lineStrong,
+              borderWidth: 1,
+              borderRadius: radius.control,
+              color: t.ink,
+              ...type({ fontSize: 16 }),
+              paddingHorizontal: space.md,
+              paddingVertical: space.md,
+              minHeight: input.multiline ? 110 : 48,
+              textAlignVertical: input.multiline ? "top" : "center",
+            },
+            input.style,
+          ]}
+        />
+      </View>
       {help ? <Muted>{help}</Muted> : null}
     </View>
   );
 }
 
 /** A row of choices where one (or none) is picked, such as a spread or how sure the person felt. */
-export function ChoiceRow<T extends string | number>({ label, options, value, onChange, allowNone }: {
+export function ChoiceRow<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+  allowNone,
+}: {
   label: string;
   options: { value: T; label: string }[];
   value: T | null;
@@ -184,9 +235,10 @@ export function ChoiceRow<T extends string | number>({ label, options, value, on
   allowNone?: boolean;
 }) {
   const t = useTokens();
+  const type = useType();
   return (
     <View style={{ gap: space.xs }} accessibilityRole="radiogroup" accessibilityLabel={label}>
-      <Text style={{ color: t.inkStrong, fontSize: 15, fontWeight: "600" }}>{label}</Text>
+      <Text style={{ color: t.inkStrong, ...type({ fontSize: 15, bold: "semi" }) }}>{label}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
         {options.map((o) => {
           const on = o.value === value;
@@ -206,7 +258,7 @@ export function ChoiceRow<T extends string | number>({ label, options, value, on
                 backgroundColor: on ? t.blush : "transparent",
               }}
             >
-              <Text style={{ color: on ? t.onBlush : t.ink, fontSize: 15 }}>{o.label}</Text>
+              <Text style={{ color: on ? t.onBlush : t.ink, ...type({ fontSize: 15 }) }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -215,12 +267,75 @@ export function ChoiceRow<T extends string | number>({ label, options, value, on
   );
 }
 
+/** A list of choices, one under the other, where one is picked: for choices that need a sentence each, such as a font. */
+export function RadioList<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string; note?: string; labelStyle?: StyleProp<TextStyle>; before?: ReactNode }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const t = useTokens();
+  const type = useType();
+  return (
+    <View style={{ gap: space.sm }} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      <Text style={{ color: t.inkStrong, ...type({ fontSize: 15, bold: "semi" }) }}>{label}</Text>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={o.note ? `${o.label}. ${o.note}` : o.label}
+            onPress={() => onChange(o.value)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.md,
+              minHeight: 48,
+              padding: space.md,
+              borderRadius: radius.control,
+              borderWidth: on ? 2 : 1,
+              borderColor: on ? t.accentInk : t.lineStrong,
+            }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor: on ? t.accentInk : t.inkFaint,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {on && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accentInk }} />}
+            </View>
+            {o.before}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[{ color: t.inkStrong, ...type({ fontSize: 16 }) }, o.labelStyle]}>{o.label}</Text>
+              {o.note ? <Muted>{o.note}</Muted> : null}
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ToggleRow({ label, help, value, onChange }: { label: string; help?: string; value: boolean; onChange: (v: boolean) => void }) {
   const t = useTokens();
+  const type = useType();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 48 }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: t.inkStrong, fontSize: 16 }}>{label}</Text>
+        <Text style={{ color: t.inkStrong, ...type({ fontSize: 16 }) }}>{label}</Text>
         {help ? <Muted>{help}</Muted> : null}
       </View>
       <Switch

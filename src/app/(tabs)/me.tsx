@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Alert, Linking } from "react-native";
 import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 import { useSQLiteContext } from "expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
 import { CRISIS_LINES } from "../../core/crisis-lines";
@@ -17,13 +18,19 @@ import { strFromU8 } from "fflate";
 import { checkDesktopExport, reportLines } from "../../core/desktop-import";
 import { applyDesktopImport } from "../../db/desktop-import";
 import { HERE, THIS_DEVICE, ON_WEB } from "../../lib/where";
+import { useReloadComfort } from "../../ui/comfort";
+import { ComfortSettings } from "../../ui/ComfortSettings";
 import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
+
+/** The version in app.json; a release build gets it from its tag (.github/workflows/android-apk.yml). */
+const APP_VERSION = Constants.expoConfig?.version ?? "unknown";
 
 export default function Me() {
   const db = useSQLiteContext();
   const [s, setS] = useState<Settings | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const reloadComfort = useReloadComfort();
 
   useFocusEffect(
     useCallback(() => {
@@ -110,6 +117,7 @@ export default function Me() {
               await restoreWithPictures(db, checked.backup, read.files);
               await migrate(db);
               await syncReminders(db);
+              await reloadComfort();
               setS(await getSettings(db));
               setNote(`Your backup is back ${HERE}.`);
             } catch (e) {
@@ -173,6 +181,9 @@ export default function Me() {
         <Divider />
         <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
       </Card>
+
+      <SectionLabel>Look and comfort</SectionLabel>
+      <ComfortSettings />
 
 {ON_WEB ? (
         <>
@@ -298,6 +309,9 @@ export default function Me() {
           Felix G and Kylie B. Code under the GNU AGPL 3.0. Details are in the NOTICE file.
         </Muted>
       </Card>
+      <Muted accessibilityRole="text" style={{ textAlign: "center" }}>
+        Divination Talisman, version {APP_VERSION}
+      </Muted>
     </Screen>
   );
 }

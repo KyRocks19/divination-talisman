@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { TAROT_DECK, type Suit, type TarotCard } from "../core/cards";
 import { CardImage } from "../ui/CardImage";
 import { space, useTokens } from "../ui/theme";
+import { useType } from "../ui/comfort";
 
 const SUITS: { suit: Suit; title: string }[] = [
   { suit: "major", title: "Major Arcana" },
@@ -23,6 +24,7 @@ function rows(cards: TarotCard[]): TarotCard[][] {
 
 export default function Library() {
   const t = useTokens();
+  const type = useType();
   const { width } = useWindowDimensions();
   const cardWidth = (width - space.lg * 2 - space.md * (COLUMNS - 1)) / COLUMNS;
   const sections = SUITS.map((s) => ({ title: s.title, data: rows(TAROT_DECK.filter((c) => c.suit === s.suit)) }));
@@ -34,7 +36,7 @@ export default function Library() {
       keyExtractor={(row) => row[0].id}
       stickySectionHeadersEnabled={false}
       renderSectionHeader={({ section }) => (
-        <Text accessibilityRole="header" style={{ color: t.heading, fontSize: 20, fontWeight: "700", marginTop: space.md }}>
+        <Text accessibilityRole="header" style={{ color: t.heading, ...type({ fontSize: 20, bold: true }), marginTop: space.md }}>
           {section.title}
         </Text>
       )}
@@ -49,7 +51,7 @@ export default function Library() {
               style={({ pressed }) => ({ width: cardWidth, gap: space.xs, opacity: pressed ? 0.8 : 1 })}
             >
               <CardImage cardId={c.id} width={cardWidth} />
-              <Text style={{ color: t.ink, fontSize: 13, textAlign: "center" }} numberOfLines={2}>
+              <Text style={{ color: t.ink, ...type({ fontSize: 13 }), textAlign: "center" }} numberOfLines={2}>
                 {c.name}
               </Text>
             </Pressable>

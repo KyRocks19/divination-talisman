@@ -10,12 +10,14 @@ import { allMeanings } from "../../db/queries";
 import { Glyph } from "../../ui/Glyph";
 import { Body, Button, Card, Muted, Screen, SectionLabel } from "../../ui/kit";
 import { space, useTokens } from "../../ui/theme";
+import { useType } from "../../ui/comfort";
 
 const COLUMNS = 4;
 
 export default function ToolScreen() {
   const db = useSQLiteContext();
   const t = useTokens();
+  const type = useType();
   const nav = useNavigation();
   const { width } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,7 +66,7 @@ export default function ToolScreen() {
             style={({ pressed }) => ({ width: size, gap: space.xs, opacity: pressed ? 0.8 : 1 })}
           >
             <Glyph glyph={p.glyph} size={size} />
-            <Text style={{ color: t.ink, fontSize: 13, textAlign: "center" }} numberOfLines={2}>
+            <Text style={{ color: t.ink, ...type({ fontSize: 13 }), textAlign: "center" }} numberOfLines={2}>
               {own.has(`${p.id}:upright`) ? "✓ " : ""}
               {p.name}
             </Text>
