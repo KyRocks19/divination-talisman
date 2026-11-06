@@ -1,5 +1,6 @@
 import { Text } from "react-native";
 import { Tabs } from "expo-router/js-tabs";
+import { useType } from "../../ui/comfort";
 import { useTokens } from "../../ui/theme";
 
 /** The four tabs of the build plan. The icons are plain symbols, hidden from screen readers; the tab's name is spoken. */
@@ -7,16 +8,19 @@ const ICONS: Record<string, string> = { index: "☼", tools: "✶", record: "☰
 
 export default function TabsLayout() {
   const t = useTokens();
+  const type = useType();
   return (
     <Tabs
       screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: t.bar },
-        headerTitleStyle: { color: t.heading },
-        headerTintColor: t.inkStrong,
+        headerTitleStyle: { color: t.barTitle, ...type({ fontSize: 18, bold: "semi" }) },
+        headerTintColor: t.barTitle,
         tabBarStyle: { backgroundColor: t.bar, borderTopColor: t.line },
         tabBarActiveTintColor: t.barActive,
         tabBarInactiveTintColor: t.barInk,
-        tabBarLabelStyle: { fontSize: 12 },
+        // The chosen font, but not the chosen size: a bigger label would not fit under its icon. The phone's own text size
+        // still applies.
+        tabBarLabelStyle: { fontSize: 12, fontFamily: type({ fontSize: 12 }).fontFamily },
         sceneStyle: { backgroundColor: t.canvas },
         tabBarIcon: ({ color, size }) => (
           <Text accessible={false} style={{ color, fontSize: size - 2 }}>

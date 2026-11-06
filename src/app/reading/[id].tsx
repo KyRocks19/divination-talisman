@@ -8,18 +8,18 @@ import { useSQLiteContext } from "expo-sqlite";
 import * as Haptics from "expo-haptics";
 import { getCardById } from "../../core/cards";
 import { getSpread } from "../../core/spreads";
-import { CONFIDENCE_LABELS, FITS, FIT_LABELS, type Fit } from "../../core/guess-core";
+import { CONFIDENCE_LABELS, FIT_LABELS } from "../../core/guess-core";
 import { NOTHING_EXTRA, readingToMarkdown } from "../../core/share-reading-core";
 import {
-  addJournalEntry, allMeanings, deleteJournalEntry, deleteReading, getReading, setFit, updateReadingNotes,
+  allMeanings, deleteReading, getReading, updateReadingNotes,
   type FullReading, type PieceRow,
 } from "../../db/queries";
-import { dayText, dayTimeText } from "../../lib/dates";
+import { dayTimeText } from "../../lib/dates";
 import { CardImage } from "../../ui/CardImage";
 import { OracleImage } from "../../ui/OracleImage";
 import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracle";
 import type { FieldDef } from "../../core/oracle";
-import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
 import { HERE, THIS_DEVICE } from "../../lib/where";
 import {
@@ -106,6 +106,12 @@ export default function ReadingScreen() {
             Sealed {dayTimeText(sensed.sealed_at)}
             {sensed.confidence ? ` · ${CONFIDENCE_LABELS[sensed.confidence]}` : ""}
           </Muted>
+          {sensed.fit !== null && (
+            <Muted>
+              Looked back: {FIT_LABELS[sensed.fit]}
+              {sensed.fit_note ? `. ${sensed.fit_note}` : ""}
+            </Muted>
+          )}
         </Card>
       )}
 
@@ -125,11 +131,10 @@ export default function ReadingScreen() {
 
       {allShown && (
         <>
-          {sensed && !sensed.skipped && <LookBack readingId={reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={load} />}
           <Notes readingId={reading.id} initial={reading.notes} />
           <Predictions readingId={reading.id} rows={predictions} />
           <Tags readingId={reading.id} mine={tags.mine} all={tags.all} onChange={load} />
-          <Journal readingId={reading.id} entries={journal} onChange={load} />
+          <LookBackLink readingId={reading.id} waiting={!!sensed && !sensed.skipped && sensed.fit === null} entries={journal.length} />
           <ShareAndDelete data={data} oracle={oracle} />
         </>
       )}
@@ -355,39 +360,17 @@ function CastSummary({ tool, pieces, spreadId }: { tool: ToolDef; pieces: PieceR
   return null;
 }
 
-function LookBack({ readingId, fit, note, onSaved }: { readingId: number; fit: Fit | null; note: string | null; onSaved: () => void }) {
-  const db = useSQLiteContext();
-  const [value, setValue] = useState<Fit | null>(fit);
-  const [words, setWords] = useState(note ?? "");
-  const [saved, setSaved] = useState(false);
-  const changed = value !== fit || (words.trim() || null) !== (note ?? null);
+/** Looking back and the journal are on the Today tab; this opens it with this reading chosen. */
+function LookBackLink({ readingId, waiting, entries }: { readingId: number; waiting: boolean; entries: number }) {
   return (
     <Card>
-      <SectionLabel>Looking back</SectionLabel>
+      <SectionLabel>Look back and journal</SectionLabel>
       <Muted>
-        When you know how things went, say how well what you sensed fitted. There is no right answer; this is for you to notice your own
-        patterns.
+        {waiting ? "This reading is ready to look back on. " : ""}
+        {entries === 0 ? "No journal entries yet." : entries === 1 ? "It has 1 journal entry." : `It has ${entries} journal entries.`} Looking back and
+        the journal are on the Today tab.
       </Muted>
-      <ChoiceRow
-        label="How well did it fit?"
-        options={FITS.map((f) => ({ value: f, label: FIT_LABELS[f] }))}
-        value={value}
-        onChange={(v) => {
-          setValue(v);
-          setSaved(false);
-        }}
-        allowNone
-      />
-      <Field label="A note (optional)" value={words} onChangeText={(v) => (setWords(v), setSaved(false))} multiline maxLength={1000} />
-      <Button
-        label={saved ? "Saved" : "Save"}
-        disabled={!changed && !saved}
-        onPress={async () => {
-          await setFit(db, readingId, value, value === null ? null : words);
-          setSaved(true);
-          onSaved();
-        }}
-      />
+      <Button label="Look back and write on Today" variant="quiet" onPress={() => router.dismissTo({ pathname: "/", params: { reading: String(readingId) } })} />
     </Card>
   );
 }
@@ -498,44 +481,6 @@ function Tags({ readingId, mine, all, onChange }: { readingId: number; mine: Tag
         }}
       />
       {error && <ErrorNote>{error}</ErrorNote>}
-    </Card>
-  );
-}
-
-function Journal({ readingId, entries, onChange }: { readingId: number; entries: FullReading["journal"]; onChange: () => void }) {
-  const db = useSQLiteContext();
-  const [draft, setDraft] = useState("");
-  return (
-    <Card>
-      <SectionLabel>Journal</SectionLabel>
-      {entries.length === 0 && <Muted>Add entries over the coming days as things unfold.</Muted>}
-      {entries.map((e) => (
-        <View key={e.id} style={{ gap: 2 }}>
-          <Muted>{dayText(e.created_at)}</Muted>
-          <Body>{e.body}</Body>
-          <Button
-            label="Delete entry"
-            variant="text"
-            onPress={() =>
-              Alert.alert("Delete this entry?", "This cannot be undone.", [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: async () => (await deleteJournalEntry(db, e.id), onChange()) },
-              ])
-            }
-          />
-        </View>
-      ))}
-      <Field label="New entry" value={draft} onChangeText={setDraft} multiline />
-      <Button
-        label="Add entry"
-        variant="quiet"
-        disabled={!draft.trim()}
-        onPress={async () => {
-          await addJournalEntry(db, readingId, draft);
-          setDraft("");
-          onChange();
-        }}
-      />
     </Card>
   );
 }

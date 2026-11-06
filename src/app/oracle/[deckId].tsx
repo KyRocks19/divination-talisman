@@ -8,6 +8,7 @@ import { getDeck, listCards, type Deck, type OracleCard } from "../../db/oracle"
 import { Body, Button, Loading, Muted, Screen } from "../../ui/kit";
 import { OracleImage } from "../../ui/OracleImage";
 import { space, useTokens } from "../../ui/theme";
+import { useType } from "../../ui/comfort";
 import { HERE } from "../../lib/where";
 
 const COLUMNS = 3;
@@ -15,6 +16,7 @@ const COLUMNS = 3;
 export default function DeckScreen() {
   const db = useSQLiteContext();
   const t = useTokens();
+  const type = useType();
   const nav = useNavigation();
   const { width } = useWindowDimensions();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -67,7 +69,7 @@ export default function DeckScreen() {
             style={({ pressed }) => ({ width: cardWidth, gap: space.xs, opacity: pressed ? 0.8 : 1 })}
           >
             <OracleImage photo={c.photo ? { photo: c.photo, linked: c.photoLinked } : null} name={c.name} width={cardWidth} />
-            <Text style={{ color: t.ink, fontSize: 13, textAlign: "center" }} numberOfLines={2}>
+            <Text style={{ color: t.ink, ...type({ fontSize: 13 }), textAlign: "center" }} numberOfLines={2}>
               {c.name}
             </Text>
           </Pressable>

@@ -41,8 +41,15 @@ Built with Expo (React Native) and on-device SQLite, for iPhone and Android from
 - **Tags:** on any reading; Record filters by tag, search finds them, and a Tags screen renames or deletes them.
 - **Signs and dreams** and **blind-target practice** (Tools).
 - **From the desktop app** (Me): bring in the JSON file from Divination Station's Settings export. It only adds.
+- **Look back and journal** (Today): choose any reading from a list (the ones waiting to be looked back on come first),
+  say how well what you sensed fitted, and keep journal entries about it, or about no reading at all. Entries can be
+  changed and deleted.
+- **Look and comfort** (Me): the desktop's reading comfort choices (Atkinson Hyperlegible, Lexend or OpenDyslexic; four
+  text sizes on top of the phone's own; roomy spacing; less motion, which also follows the phone's reduce motion
+  setting), its eight colour themes, and swiping left or right between tabs (off while TalkBack or VoiceOver is on).
+- **The app's version** at the bottom of Me.
 
-Not built: tea leaves, ink blots, scrying, charm casting, bibliomancy, cloths, the encyclopedia, extra themes, the AI
+Not built: tea leaves, ink blots, scrying, charm casting, bibliomancy, cloths, the encyclopedia, the AI
 companion, and app store builds.
 
 ## The browser version

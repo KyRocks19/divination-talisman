@@ -7,6 +7,7 @@ import { migrate } from "../db/queries";
 import { LockGate } from "../lib/lock";
 import { setUpReminders, syncReminders, useReminderTaps } from "../lib/reminders";
 import { ON_WEB } from "../lib/where";
+import { ComfortProvider, useComfort, useType } from "../ui/comfort";
 import { Loading } from "../ui/kit";
 import { useIsDark, useTokens } from "../ui/theme";
 
@@ -28,44 +29,60 @@ function Reminders() {
 }
 
 export default function RootLayout() {
-  const t = useTokens();
-  const dark = useIsDark();
   return (
     <Suspense fallback={<Loading />}>
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={async (db) => void (await migrate(db))} useSuspense>
-        <StatusBar style={dark ? "light" : "dark"} />
-        <Reminders />
-        <LockGate>
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: t.bar },
-              headerTintColor: t.inkStrong,
-              headerTitleStyle: { color: t.heading },
-              contentStyle: { backgroundColor: t.canvas },
-              headerBackTitle: "Back",
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="reading/new" options={{ title: "New reading" }} />
-            <Stack.Screen name="reading/[id]" options={{ title: "Reading" }} />
-            <Stack.Screen name="library" options={{ title: "Card library" }} />
-            <Stack.Screen name="card/[id]" options={{ title: "Card" }} />
-            <Stack.Screen name="patterns" options={{ title: "Patterns" }} />
-            <Stack.Screen name="oracle/[deckId]" options={{ title: "Deck" }} />
-            <Stack.Screen name="oracle/deck-edit" options={{ title: "Deck" }} />
-            <Stack.Screen name="oracle/card" options={{ title: "Card" }} />
-            <Stack.Screen name="predictions" options={{ title: "Predictions" }} />
-            <Stack.Screen name="prediction/[id]" options={{ title: "Prediction" }} />
-            <Stack.Screen name="tags" options={{ title: "Tags" }} />
-            <Stack.Screen name="tool/[id]" options={{ title: "Tool" }} />
-            <Stack.Screen name="piece/[tool]/[id]" options={{ title: "Meaning" }} />
-            <Stack.Screen name="signs" options={{ title: "Signs and dreams" }} />
-            <Stack.Screen name="note/[id]" options={{ title: "Note" }} />
-            <Stack.Screen name="blind/index" options={{ title: "Blind-target practice" }} />
-            <Stack.Screen name="blind/[id]" options={{ title: "Trial" }} />
-          </Stack>
-        </LockGate>
+        <ComfortProvider>
+          <App />
+        </ComfortProvider>
       </SQLiteProvider>
     </Suspense>
+  );
+}
+
+function App() {
+  const t = useTokens();
+  const dark = useIsDark();
+  const type = useType();
+  const { lessMotion } = useComfort();
+  return (
+    <>
+      <StatusBar style={dark ? "light" : "dark"} />
+      <Reminders />
+      <LockGate>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: t.bar },
+            headerTintColor: t.barTitle,
+            headerTitleStyle: {
+              color: t.barTitle,
+              ...type({ fontSize: 18, bold: "semi" }),
+            },
+            contentStyle: { backgroundColor: t.canvas },
+            headerBackTitle: "Back",
+            animation: lessMotion ? "none" : "default",
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="reading/new" options={{ title: "New reading" }} />
+          <Stack.Screen name="reading/[id]" options={{ title: "Reading" }} />
+          <Stack.Screen name="library" options={{ title: "Card library" }} />
+          <Stack.Screen name="card/[id]" options={{ title: "Card" }} />
+          <Stack.Screen name="patterns" options={{ title: "Patterns" }} />
+          <Stack.Screen name="oracle/[deckId]" options={{ title: "Deck" }} />
+          <Stack.Screen name="oracle/deck-edit" options={{ title: "Deck" }} />
+          <Stack.Screen name="oracle/card" options={{ title: "Card" }} />
+          <Stack.Screen name="predictions" options={{ title: "Predictions" }} />
+          <Stack.Screen name="prediction/[id]" options={{ title: "Prediction" }} />
+          <Stack.Screen name="tags" options={{ title: "Tags" }} />
+          <Stack.Screen name="tool/[id]" options={{ title: "Tool" }} />
+          <Stack.Screen name="piece/[tool]/[id]" options={{ title: "Meaning" }} />
+          <Stack.Screen name="signs" options={{ title: "Signs and dreams" }} />
+          <Stack.Screen name="note/[id]" options={{ title: "Note" }} />
+          <Stack.Screen name="blind/index" options={{ title: "Blind-target practice" }} />
+          <Stack.Screen name="blind/[id]" options={{ title: "Trial" }} />
+        </Stack>
+      </LockGate>
+    </>
   );
 }

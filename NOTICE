@@ -32,6 +32,20 @@ TAROT CARD TEXT (src/core/cards.ts)
 
 
 
+FONTS (for the Font choice on the Me tab)
+
+  Atkinson Hyperlegible (Braille Institute of America) and Lexend (Bonnie Shaver-Troup, Thomas Jockin and others),
+  from the @expo-google-fonts packages, under the SIL Open Font License 1.1; the licence texts are in node_modules
+  (LICENSE_FONT in each package).
+  OpenDyslexic (Abbie Gonzalez), under the SIL Open Font License 1.1, with Reserved Font Name OpenDyslexic. The files
+  in assets/fonts are the Latin regular and bold from the @fontsource/opendyslexic package, changed only from WOFF to
+  OTF so the phone can load them; its licence is assets/fonts/OpenDyslexic-LICENSE.txt.
+
+COLOUR THEMES (src/ui/themes-data.ts)
+
+  The eight ready-made themes are the desktop app's (lib/themes-data.ts there), the own work of its authors.
+
+
 LIBRARIES
 
   Expo, React Native and React, under the MIT licence; their licence texts are inside node_modules.
