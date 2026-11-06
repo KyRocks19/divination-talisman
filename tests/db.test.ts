@@ -131,11 +131,15 @@ test("changing a meaning keeps the old words in its history; emptying it deletes
 
 test("settings start from the defaults and keep what is set", async () => {
   const db = await fresh();
-  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy" });
+  const reminders = { lookBackReminders: true, backupReminders: true };
+  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy", ...reminders });
   await setSetting(db, "lock", true);
   await setSetting(db, "senseFirst", false);
   await setSetting(db, "lastBackupAt", "2026-11-05T10:00:00Z");
-  assert.deepEqual(await getSettings(db), { lock: true, senseFirst: false, reversals: true, lastBackupAt: "2026-11-05T10:00:00Z", photoMode: "copy" });
+  await setSetting(db, "backupReminders", false);
+  assert.deepEqual(await getSettings(db), {
+    lock: true, senseFirst: false, reversals: true, lastBackupAt: "2026-11-05T10:00:00Z", photoMode: "copy", lookBackReminders: true, backupReminders: false,
+  });
 });
 
 test("a backup restores to exactly the same data", async () => {

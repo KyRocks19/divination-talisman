@@ -19,9 +19,17 @@ import { CardImage } from "../../ui/CardImage";
 import { OracleImage } from "../../ui/OracleImage";
 import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracle";
 import type { FieldDef } from "../../core/oracle";
-import { Body, Button, Card, ChoiceRow, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
 import { HERE, THIS_DEVICE } from "../../lib/where";
+import {
+  addTagToReading, listTags, predictionsForReading, removeTagFromReading, tagsForReading, cleanTagName, MAX_TAG_LENGTH,
+  type PredictionRow, type TagRow, type TagWithCount,
+} from "../../db/predictions";
+import { OUTCOME_LABELS, dayWords } from "../../core/predictions";
+import { ICHING_LINE_WORDS, coinTally, geomancyHow, getTool, ichingCastOf, throwTotal, type ToolDef } from "../../core/tools";
+import { Glyph } from "../../ui/Glyph";
+import { TraditionalText } from "../../ui/TraditionalText";
 
 export default function ReadingScreen() {
   const db = useSQLiteContext();
@@ -32,6 +40,8 @@ export default function ReadingScreen() {
   const [own, setOwn] = useState<Map<string, string>>(new Map());
   const [oracle, setOracle] = useState<OracleInfo | null>(null);
   const [revealed, setRevealed] = useState<Set<number> | null>(null);
+  const [predictions, setPredictions] = useState<PredictionRow[]>([]);
+  const [tags, setTags] = useState<{ mine: TagRow[]; all: TagWithCount[] }>({ mine: [], all: [] });
 
   const load = useCallback(async () => {
     const r = await getReading(db, readingId);
@@ -42,7 +52,11 @@ export default function ReadingScreen() {
       const deck = r.reading.deck_id ? await getDeck(db, r.reading.deck_id) : null;
       setOracle({ cards, fields: deck?.fields ?? [], deckName: deck?.name ?? null });
     }
-    if (r) setRevealed((prev) => prev ?? new Set(reveal === "1" ? [] : r.pieces.map((p) => p.position)));
+    if (r) {
+      setPredictions(await predictionsForReading(db, readingId));
+      setTags({ mine: await tagsForReading(db, readingId), all: await listTags(db) });
+      setRevealed((prev) => prev ?? new Set(reveal === "1" ? [] : r.pieces.map((p) => p.position)));
+    }
   }, [db, readingId, reveal]);
 
   useFocusEffect(
@@ -52,7 +66,7 @@ export default function ReadingScreen() {
   );
 
   useEffect(() => {
-    if (data) nav.setOptions({ title: data.reading.spread_name ?? "Reading" });
+    if (data) nav.setOptions({ title: data.reading.spread_name ?? getTool(data.reading.tool)?.name ?? "Reading" });
   }, [data, nav]);
 
   if (data === undefined || revealed === null) return <Loading />;
@@ -65,6 +79,7 @@ export default function ReadingScreen() {
   }
 
   const { reading, pieces, sensed, journal } = data;
+  const tool = getTool(reading.tool);
   const allShown = pieces.every((p) => revealed.has(p.position));
 
   function turnOver(position: number) {
@@ -76,7 +91,7 @@ export default function ReadingScreen() {
   return (
     <Screen>
       <View style={{ gap: space.xs }}>
-        <Title>{reading.question || reading.spread_name || "Reading"}</Title>
+        <Title>{reading.question || reading.spread_name || tool?.name || "Reading"}</Title>
         <Muted>
           {dayTimeText(reading.created_at)}
           {oracle?.deckName ? ` · ${oracle.deckName}` : ""}
@@ -94,7 +109,8 @@ export default function ReadingScreen() {
         </Card>
       )}
 
-      <Pieces pieces={pieces} revealed={revealed} own={own} oracle={oracle} spreadId={reading.spread_id} onTurn={turnOver} />
+      <Pieces pieces={pieces} revealed={revealed} own={own} oracle={oracle} tool={tool} spreadId={reading.spread_id} onTurn={turnOver} />
+      {allShown && tool && <CastSummary tool={tool} pieces={pieces} spreadId={reading.spread_id} />}
 
       {!allShown && (
         <Button
@@ -111,6 +127,8 @@ export default function ReadingScreen() {
         <>
           {sensed && !sensed.skipped && <LookBack readingId={reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={load} />}
           <Notes readingId={reading.id} initial={reading.notes} />
+          <Predictions readingId={reading.id} rows={predictions} />
+          <Tags readingId={reading.id} mine={tags.mine} all={tags.all} onChange={load} />
           <Journal readingId={reading.id} entries={journal} onChange={load} />
           <ShareAndDelete data={data} oracle={oracle} />
         </>
@@ -127,22 +145,25 @@ interface OracleInfo {
 }
 
 /** The name to show for a piece: tarot from the deck, oracle as the card is called now, else as it was when drawn. */
-function pieceName(piece: PieceRow, oracle: OracleInfo | null): string {
+function pieceName(piece: PieceRow, oracle: OracleInfo | null, tool?: ToolDef): string {
   if (oracle) return oracle.cards.get(Number(piece.piece_id))?.name ?? piece.piece_name ?? "A card you deleted";
+  if (tool) return tool.piece(piece.piece_id)?.name ?? piece.piece_name ?? piece.piece_id;
   return getCardById(piece.piece_id)?.name ?? piece.piece_name ?? piece.piece_id;
 }
 
-function Pieces({ pieces, revealed, own, oracle, spreadId, onTurn }: {
+function Pieces({ pieces, revealed, own, oracle, tool, spreadId, onTurn }: {
   pieces: PieceRow[];
   revealed: Set<number>;
   own: Map<string, string>;
   oracle: OracleInfo | null;
+  tool?: ToolDef;
   spreadId: string | null;
   onTurn: (position: number) => void;
 }) {
   const { width } = useWindowDimensions();
   const itemWidth = pieces.length === 1 ? width - space.lg * 2 : Math.min(width * 0.78, 420);
   const spread = spreadId ? getSpread(spreadId) : undefined;
+  const cast = ichingCastOf(spreadId);
   return (
     <FlatList
       horizontal
@@ -163,7 +184,9 @@ function Pieces({ pieces, revealed, own, oracle, spreadId, onTurn }: {
           shown={revealed.has(item.position)}
           own={own.get(`${item.piece_id}:${item.reversed ? "reversed" : "upright"}`)}
           oracle={oracle}
-          prompt={spread?.positions[item.position]?.description}
+          tool={tool}
+          changing={cast && item.position === 0 ? cast.values.flatMap((v, i) => (v === 6 || v === 9 ? [i + 1] : [])) : undefined}
+          prompt={spread?.positions[item.position]?.description ?? (tool?.kind === "geomancy" ? geomancyHow(item.position) : undefined)}
           color={spread?.positions[item.position]?.color}
           onTurn={() => onTurn(item.position)}
         />
@@ -172,7 +195,7 @@ function Pieces({ pieces, revealed, own, oracle, spreadId, onTurn }: {
   );
 }
 
-function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, color, onTurn }: {
+function PieceCard({ piece, index, total, width, shown, own, oracle, tool, changing, prompt, color, onTurn }: {
   piece: PieceRow;
   index: number;
   total: number;
@@ -180,15 +203,19 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, col
   shown: boolean;
   own?: string;
   oracle: OracleInfo | null;
+  tool?: ToolDef;
+  /** I Ching: the changing lines of the first hexagram, marked beside them. */
+  changing?: number[];
   prompt?: string;
   color?: string;
   onTurn: () => void;
 }) {
   const t = useTokens();
   const [stock, setStock] = useState(false);
-  const card = oracle ? undefined : getCardById(piece.piece_id);
+  const card = oracle || tool ? undefined : getCardById(piece.piece_id);
   const oracleCard = oracle?.cards.get(Number(piece.piece_id));
-  const name = pieceName(piece, oracle);
+  const toolPiece = tool?.piece(piece.piece_id);
+  const name = pieceName(piece, oracle, tool);
   const reversed = !!piece.reversed;
   const pictureWidth = Math.min(width * 0.62, 220);
   const where = `${index + 1} of ${total}, ${piece.position_name}`;
@@ -210,7 +237,18 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, col
         accessibilityHint={shown ? undefined : "Turns the card over"}
         style={{ alignSelf: "center", paddingVertical: space.sm }}
       >
-        {oracle ? (
+        {tool ? (
+          toolPiece ? (
+            <Glyph
+              glyph={toolPiece.glyph.kind === "lines" && changing ? { ...toolPiece.glyph, changing } : toolPiece.glyph}
+              size={Math.min(pictureWidth, 150)}
+              faceDown={!shown}
+              reversed={reversed}
+            />
+          ) : (
+            <Glyph glyph={{ kind: "label", text: piece.piece_name ?? piece.piece_id }} size={Math.min(pictureWidth, 150)} faceDown={!shown} />
+          )
+        ) : oracle ? (
           <OracleImage
             photo={oracleCard?.photo ? { photo: oracleCard.photo, linked: oracleCard.photoLinked } : null}
             name={name}
@@ -230,6 +268,7 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, col
             {name}
             {reversed ? " (reversed)" : ""}
           </Strong>
+          {toolPiece?.subtitle ? <Muted style={{ textAlign: "center" }}>{toolPiece.subtitle}</Muted> : null}
           {oracleCard &&
             oracle!.fields
               .filter((f) => oracleCard.values[f.id])
@@ -239,24 +278,34 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, col
                   <Body>{oracleCard.values[f.id]}</Body>
                 </View>
               ))}
-          {own ? (
+          {tool && !toolPiece ? null : own ? (
             <View style={{ gap: 2 }}>
               <SectionLabel>Your meaning</SectionLabel>
               <Body>{own}</Body>
             </View>
           ) : (
-            <Muted>You have not written your own meaning for this card{reversed ? " reversed" : oracle ? "" : " upright"} yet.</Muted>
+            <Muted>
+              You have not written your own meaning for this {tool?.pieceWord ?? "card"}
+              {reversed ? " reversed" : oracle || (tool && !toolPiece?.canReverse) ? "" : " upright"} yet.
+            </Muted>
           )}
-          {(!oracle || oracleCard) && (
+          {(!oracle || oracleCard) && (!tool || toolPiece) && (
             <Button
               label={own ? "Change your meaning" : "Write your meaning"}
               variant="text"
               onPress={() =>
-                router.push(oracle ? { pathname: "/oracle/card", params: { id: piece.piece_id } } : `/card/${piece.piece_id}`)
+                router.push(
+                  oracle
+                    ? { pathname: "/oracle/card", params: { id: piece.piece_id } }
+                    : tool
+                      ? { pathname: "/piece/[tool]/[id]", params: { tool: tool.id, id: piece.piece_id } }
+                      : `/card/${piece.piece_id}`,
+                )
               }
             />
           )}
-          {!oracle && (
+          {tool && toolPiece && <TraditionalText tool={tool} piece={toolPiece} />}
+          {!oracle && !tool && (
           <Button
             label={stock ? "Hide Pixie-Smith meanings" : "Pixie-Smith meanings"}
             variant="quiet"
@@ -274,6 +323,36 @@ function PieceCard({ piece, index, total, width, shown, own, oracle, prompt, col
       )}
     </View>
   );
+}
+
+/** Under a throw, a cast or a chart: the plain sum of the dice, the coins' heads and tails, or the six lines. */
+function CastSummary({ tool, pieces, spreadId }: { tool: ToolDef; pieces: PieceRow[]; spreadId: string | null }) {
+  const ids = pieces.map((p) => p.piece_id);
+  if (tool.kind === "throw") {
+    const total = throwTotal(ids);
+    const coins = coinTally(ids);
+    if (pieces.length < 2 || (total === null && !coins)) return null;
+    return (
+      <Card>
+        <Body>{total !== null ? `Total: ${total}` : `Heads: ${coins!.heads} · Tails: ${coins!.tails}`}</Body>
+      </Card>
+    );
+  }
+  if (tool.kind === "iching") {
+    const cast = ichingCastOf(spreadId);
+    if (!cast) return null;
+    return (
+      <Card>
+        <SectionLabel>The six lines, from the bottom</SectionLabel>
+        {cast.values.map((v, i) => (
+          <Muted key={i}>
+            Line {i + 1}: {v}, {ICHING_LINE_WORDS[v]}
+          </Muted>
+        ))}
+      </Card>
+    );
+  }
+  return null;
 }
 
 function LookBack({ readingId, fit, note, onSaved }: { readingId: number; fit: Fit | null; note: string | null; onSaved: () => void }) {
@@ -328,6 +407,97 @@ function Notes({ readingId, initial }: { readingId: number; initial: string }) {
           setSaved(notes);
         }}
       />
+    </Card>
+  );
+}
+
+function Predictions({ readingId, rows }: { readingId: number; rows: PredictionRow[] }) {
+  return (
+    <Card>
+      <SectionLabel>Predictions</SectionLabel>
+      {rows.length === 0 && <Muted>What do you expect to happen? Write it down now and choose a day to look back.</Muted>}
+      {rows.map((p) => (
+        <Pressable
+          key={p.id}
+          onPress={() => router.push(`/prediction/${p.id}`)}
+          accessibilityRole="button"
+          accessibilityHint="Opens the prediction"
+          style={{ gap: 2, paddingVertical: space.xs }}
+        >
+          <Body>{p.text}</Body>
+          <Muted>{p.outcome ? OUTCOME_LABELS[p.outcome] : p.look_back_on ? `Look back on ${dayWords(p.look_back_on)}` : "No date"}</Muted>
+        </Pressable>
+      ))}
+      <Button
+        label="Write a prediction"
+        variant="quiet"
+        onPress={() => router.push({ pathname: "/prediction/[id]", params: { id: "new", reading: String(readingId) } })}
+      />
+    </Card>
+  );
+}
+
+function Tags({ readingId, mine, all, onChange }: { readingId: number; mine: TagRow[]; all: TagWithCount[]; onChange: () => void }) {
+  const db = useSQLiteContext();
+  const t = useTokens();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const on = new Set(mine.map((m) => m.id));
+  const others = all.filter((a) => !on.has(a.id));
+  const chip = (tag: TagRow, active: boolean) => (
+    <Pressable
+      key={tag.id}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={`Tag ${tag.name}`}
+      accessibilityHint={active ? "Takes the tag off this reading" : "Puts the tag on this reading"}
+      onPress={async () => {
+        if (active) await removeTagFromReading(db, readingId, tag.id);
+        else await addTagToReading(db, readingId, tag.name);
+        onChange();
+      }}
+      style={{
+        minHeight: 40,
+        paddingHorizontal: space.md,
+        justifyContent: "center",
+        borderRadius: radius.control,
+        borderWidth: 1,
+        borderColor: active ? t.blush : t.lineStrong,
+        backgroundColor: active ? t.blush : "transparent",
+      }}
+    >
+      <Muted style={{ color: active ? t.onBlush : t.ink }}>{active ? `✓ ${tag.name}` : tag.name}</Muted>
+    </Pressable>
+  );
+  return (
+    <Card>
+      <SectionLabel>Tags</SectionLabel>
+      {mine.length === 0 && <Muted>Tags let you find readings again, such as "work" or "family".</Muted>}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+        {mine.map((m) => chip(m, true))}
+        {others.map((o) => chip(o, false))}
+      </View>
+      <Field
+        label="New tag"
+        value={draft}
+        onChangeText={(v) => (setDraft(v), setError(null))}
+        maxLength={MAX_TAG_LENGTH}
+        autoCapitalize="none"
+        returnKeyType="done"
+      />
+      <Button
+        label="Add the tag"
+        variant="quiet"
+        disabled={!draft.trim()}
+        onPress={async () => {
+          const name = cleanTagName(draft);
+          if (!name) return setError(`A tag can be up to ${MAX_TAG_LENGTH} characters.`);
+          await addTagToReading(db, readingId, name);
+          setDraft("");
+          onChange();
+        }}
+      />
+      {error && <ErrorNote>{error}</ErrorNote>}
     </Card>
   );
 }
@@ -392,7 +562,7 @@ function ShareAndDelete({ data, oracle }: { data: FullReading; oracle: OracleInf
               question: reading.question,
               created_at: reading.created_at,
               notes: reading.notes,
-              cards: pieces.map((p) => ({ position: p.position_name, card_name: pieceName(p, oracle), reversed: !!p.reversed })),
+              cards: pieces.map((p) => ({ position: p.position_name, card_name: pieceName(p, oracle, getTool(reading.tool)), reversed: !!p.reversed })),
               clarifiers: {},
             },
             [],
@@ -405,7 +575,7 @@ function ShareAndDelete({ data, oracle }: { data: FullReading; oracle: OracleInf
         label="Delete this reading"
         variant="danger"
         onPress={() =>
-          Alert.alert("Delete this reading?", `Its cards, what you sensed, its notes and its journal entries are deleted from ${THIS_DEVICE}. This cannot be undone.`, [
+          Alert.alert("Delete this reading?", `Its cards, what you sensed, its notes, journal entries and predictions are deleted from ${THIS_DEVICE}. This cannot be undone.`, [
             { text: "Cancel", style: "cancel" },
             {
               text: "Delete",

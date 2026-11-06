@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { BUILT_IN_SPREADS } from "../../core/spreads";
 import { listDecks, type Deck } from "../../db/oracle";
+import { TOOLS } from "../../core/tools";
 import { Button, Card, Muted, Screen, SectionLabel, Strong } from "../../ui/kit";
 
 export default function Tools() {
@@ -45,16 +46,30 @@ export default function Tools() {
       ))}
       <Button label="Make a deck" variant="quiet" onPress={() => router.push("/oracle/deck-edit")} />
 
+      <SectionLabel>Other tools</SectionLabel>
+      {TOOLS.map((tool) => (
+        <Card key={tool.id} onPress={() => router.push(`/tool/${tool.id}`)} accessibilityHint="Opens the tool, with your meanings">
+          <Strong>{tool.name}</Strong>
+          <Muted>{tool.blurb}</Muted>
+        </Card>
+      ))}
+
+      <SectionLabel>Practice and notes</SectionLabel>
+      <Card onPress={() => router.push("/signs")} accessibilityHint="Opens your signs and dreams">
+        <Strong>Signs and dreams</Strong>
+        <Muted>Write down a sign you noticed or a dream you had, to look back on later.</Muted>
+      </Card>
+      <Card onPress={() => router.push("/blind")} accessibilityHint="Opens blind-target practice">
+        <Strong>Blind-target practice</Strong>
+        <Muted>Write an impression of a hidden target, then see which of four it was.</Muted>
+      </Card>
+
       <SectionLabel>Learn</SectionLabel>
       <Card onPress={() => router.push("/library")} accessibilityHint="Opens the 78 cards">
         <Strong>Card library</Strong>
         <Muted>All 78 tarot cards, with your own meanings first.</Muted>
       </Card>
 
-      <SectionLabel>Coming later</SectionLabel>
-      <Muted>
-        Runes, dice and coins, the pendulum, the I Ching, ogham, geomancy, playing cards, lots, signs and dreams, and blind-target practice.
-      </Muted>
     </Screen>
   );
 }

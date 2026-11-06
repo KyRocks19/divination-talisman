@@ -114,17 +114,27 @@ export interface ReadingListItem extends ReadingRow {
   fit: Fit | null;
 }
 
-/** Newest first. `search` matches the question, the notes, what was sensed first and journal entries, ignoring case. */
-export async function listReadings(db: Db, search = "", limit = 200): Promise<ReadingListItem[]> {
+/**
+ * Newest first. `search` matches the question, the notes, what was sensed first, journal entries, predictions and tag
+ * names, ignoring case. `tagId` keeps only the readings with that tag.
+ */
+export async function listReadings(db: Db, search = "", limit = 200, tagId: number | null = null): Promise<ReadingListItem[]> {
   const q = search.trim();
   const params: Param[] = [];
-  let where = "";
+  const conditions: string[] = [];
   if (q) {
     const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    where = `WHERE r.question LIKE ? ESCAPE '\\' OR r.notes LIKE ? ESCAPE '\\' OR s.guess LIKE ? ESCAPE '\\'
-      OR EXISTS (SELECT 1 FROM journal_entries j WHERE j.reading_id = r.id AND j.body LIKE ? ESCAPE '\\')`;
-    params.push(like, like, like, like);
+    conditions.push(`(r.question LIKE ? ESCAPE '\\' OR r.notes LIKE ? ESCAPE '\\' OR s.guess LIKE ? ESCAPE '\\'
+      OR EXISTS (SELECT 1 FROM journal_entries j WHERE j.reading_id = r.id AND j.body LIKE ? ESCAPE '\\')
+      OR EXISTS (SELECT 1 FROM predictions pr WHERE pr.reading_id = r.id AND pr.text LIKE ? ESCAPE '\\')
+      OR EXISTS (SELECT 1 FROM reading_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.reading_id = r.id AND t.name LIKE ? ESCAPE '\\'))`);
+    params.push(like, like, like, like, like, like);
   }
+  if (tagId !== null) {
+    conditions.push("EXISTS (SELECT 1 FROM reading_tags rt WHERE rt.reading_id = r.id AND rt.tag_id = ?)");
+    params.push(tagId);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   params.push(limit);
   return db.getAllAsync<ReadingListItem>(
     `SELECT r.*, s.guess, s.skipped, s.fit,
@@ -298,15 +308,29 @@ export interface Settings {
   lastBackupAt: string | null;
   /** New oracle photos: a copy inside the app, or a link to the photo in the phone's photo library. */
   photoMode: "copy" | "link";
+  /** A phone reminder on the day a prediction is to be looked back on. */
+  lookBackReminders: boolean;
+  /** A phone reminder 30 days after the last backup file. */
+  backupReminders: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy" };
+export const DEFAULT_SETTINGS: Settings = {
+  lock: false,
+  senseFirst: true,
+  reversals: true,
+  lastBackupAt: null,
+  photoMode: "copy",
+  lookBackReminders: true,
+  backupReminders: true,
+};
+
+const BOOLEAN_SETTINGS = ["lock", "senseFirst", "reversals", "lookBackReminders", "backupReminders"] as const;
 
 export async function getSettings(db: Db): Promise<Settings> {
   const rows = await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM settings", []);
   const s: Settings = { ...DEFAULT_SETTINGS };
   for (const { key, value } of rows) {
-    if (key === "lock" || key === "senseFirst" || key === "reversals") s[key] = value === "1";
+    if ((BOOLEAN_SETTINGS as readonly string[]).includes(key)) s[key as (typeof BOOLEAN_SETTINGS)[number]] = value === "1";
     if (key === "lastBackupAt") s.lastBackupAt = value || null;
     if (key === "photoMode") s.photoMode = value === "link" ? "link" : "copy";
   }

@@ -7,6 +7,9 @@ import { getCardById } from "../../core/cards";
 import { getSettings, listReadings, PIECE_NAME_SEPARATOR, type ReadingListItem } from "../../db/queries";
 import { dayText, daysSince } from "../../lib/dates";
 import { ON_WEB } from "../../lib/where";
+import { localDay } from "../../core/predictions";
+import { duePredictions, type PredictionListItem } from "../../db/predictions";
+import { PredictionCard } from "../../ui/PredictionCard";
 import { Body, Button, Card, Muted, Screen, SectionLabel, Strong, Title } from "../../ui/kit";
 
 // In a browser, Safari can clear a website's storage after 7 days without a visit, so the reminder comes sooner.
@@ -18,6 +21,7 @@ export default function Today() {
   const [count, setCount] = useState(0);
   const [backupDays, setBackupDays] = useState<number | null>(null);
   const [hasBackup, setHasBackup] = useState(true);
+  const [due, setDue] = useState<PredictionListItem[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -25,7 +29,9 @@ export default function Today() {
       (async () => {
         const all = await listReadings(db);
         const s = await getSettings(db);
+        const dueNow = await duePredictions(db, localDay(new Date()));
         if (!live) return;
+        setDue(dueNow);
         setCount(all.length);
         setWaiting(all.filter((r) => r.guess && !r.skipped && r.fit === null).slice(0, 3));
         setHasBackup(!!s.lastBackupAt);
@@ -54,6 +60,17 @@ export default function Today() {
         <Muted>Ask a question and choose a spread.</Muted>
         <Button label="Start a reading" variant="quiet" onPress={() => router.push("/reading/new")} />
       </Card>
+
+      {due.length > 0 && (
+        <>
+          <SectionLabel>Predictions to look back on</SectionLabel>
+          <Muted>You chose today, or a day before it, to look back on these. Say what happened when you know.</Muted>
+          {due.slice(0, 5).map((p) => (
+            <PredictionCard key={p.id} p={p} today={localDay(new Date())} />
+          ))}
+          {due.length > 5 && <Button label={`See all ${due.length}`} variant="text" onPress={() => router.push("/predictions")} />}
+        </>
+      )}
 
       {waiting.length > 0 && (
         <>

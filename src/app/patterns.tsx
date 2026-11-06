@@ -9,6 +9,9 @@ import { getCardById } from "../core/cards";
 import { CONFIDENCE_LABELS, FITS, FIT_LABELS, MIN_FITS_FOR_AVERAGE } from "../core/guess-core";
 import { recurringCards, summariseSensed, type CardCount, type SensedSummary } from "../core/patterns";
 import { patternRows } from "../db/queries";
+import { OUTCOMES, OUTCOME_LABELS, countPredictions, localDay, type PredictionCounts } from "../core/predictions";
+import { listPredictions } from "../db/predictions";
+import { getTool, toolName } from "../core/tools";
 import { dayText } from "../lib/dates";
 import { Body, Card, Loading, Muted, Screen, SectionLabel, Strong } from "../ui/kit";
 import { radius, space, useTokens } from "../ui/theme";
@@ -17,11 +20,15 @@ import { HERE } from "../lib/where";
 export default function Patterns() {
   const db = useSQLiteContext();
   const t = useTokens();
-  const [data, setData] = useState<{ readings: number; sensed: SensedSummary; cards: CardCount[] } | null>(null);
+  const [data, setData] = useState<{ readings: number; sensed: SensedSummary; cards: CardCount[]; predictions: PredictionCounts } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      patternRows(db).then((r) => setData({ readings: r.readings, sensed: summariseSensed(r.sensed), cards: recurringCards(r.pieces) }));
+      (async () => {
+        const r = await patternRows(db);
+        const predictions = countPredictions(await listPredictions(db), localDay(new Date()));
+        setData({ readings: r.readings, sensed: summariseSensed(r.sensed), cards: recurringCards(r.pieces), predictions });
+      })();
     }, [db]),
   );
 
@@ -76,19 +83,48 @@ export default function Patterns() {
         </Card>
       )}
 
-      <SectionLabel>Cards that keep coming up</SectionLabel>
+      <SectionLabel>Predictions</SectionLabel>
+      <Card onPress={() => router.push("/predictions")} accessibilityHint="Opens your predictions">
+        {data.predictions.total === 0 ? (
+          <Muted>After a reading, write what you expect to happen. When you look back, the counts show here.</Muted>
+        ) : (
+          <>
+            <Body>
+              You wrote {data.predictions.total} {data.predictions.total === 1 ? "prediction" : "predictions"}.
+              {data.predictions.due ? ` ${data.predictions.due} ready to look back on.` : ""}
+              {data.predictions.waiting ? ` ${data.predictions.waiting} waiting for ${data.predictions.waiting === 1 ? "its" : "their"} day.` : ""}
+              {data.predictions.noDate ? ` ${data.predictions.noDate} with no date.` : ""}
+            </Body>
+            {OUTCOMES.map((o) => (
+              <Muted key={o}>
+                {OUTCOME_LABELS[o]}: {data.predictions.outcomes[o]}
+              </Muted>
+            ))}
+          </>
+        )}
+      </Card>
+
+      <SectionLabel>What keeps coming up</SectionLabel>
       {data.cards.length === 0 ? (
-        <Muted>A card is listed here once it has come up in two or more readings.</Muted>
+        <Muted>A card, rune or other piece is listed here once it has come up in two or more readings.</Muted>
       ) : (
         data.cards.slice(0, 20).map((c) => (
           <Card
             key={`${c.tool}:${c.pieceId}`}
-            onPress={() => router.push(c.tool === "tarot" ? `/card/${c.pieceId}` : { pathname: "/oracle/card", params: { id: c.pieceId } })}
-            accessibilityHint="Opens the card and your meanings"
+            onPress={() =>
+              router.push(
+                c.tool === "tarot"
+                  ? `/card/${c.pieceId}`
+                  : getTool(c.tool)
+                    ? { pathname: "/piece/[tool]/[id]", params: { tool: c.tool, id: c.pieceId } }
+                    : { pathname: "/oracle/card", params: { id: c.pieceId } },
+              )
+            }
+            accessibilityHint="Opens it with your meanings"
           >
-            <Strong>{(c.tool === "tarot" ? getCardById(c.pieceId)?.name : c.name) ?? c.name ?? "A card"}</Strong>
+            <Strong>{(c.tool === "tarot" ? getCardById(c.pieceId)?.name : getTool(c.tool)?.piece(c.pieceId)?.name ?? c.name) ?? c.name ?? "A card"}</Strong>
             <Muted>
-              In {c.readings} readings{c.reversed ? `, reversed in ${c.reversed}` : ""} · last on {dayText(c.lastSeen)}
+              {c.tool !== "tarot" ? `${toolName(c.tool)} · ` : ""}In {c.readings} readings{c.reversed ? `, reversed in ${c.reversed}` : ""} · last on {dayText(c.lastSeen)}
             </Muted>
           </Card>
         ))

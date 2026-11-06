@@ -55,7 +55,14 @@
           ]
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "enableRemoteNotifications": false
+        }
+      ]
     ],
     "scheme": "divination-talisman",
     "backgroundColor": "#0d0d1a"
