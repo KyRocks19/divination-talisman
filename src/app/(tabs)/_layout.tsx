@@ -1,7 +1,7 @@
 import { Text } from "react-native";
 import { Tabs } from "expo-router/js-tabs";
 import { useType } from "../../ui/comfort";
-import { TalismanHeaderRight } from "../../ui/TalismanHeader";
+import { TalismanTabHeader } from "../../ui/TalismanHeader";
 import { useTokens } from "../../ui/theme";
 
 /** The four tabs of the build plan. The icons are plain symbols, hidden from screen readers; the tab's name is spoken. */
@@ -13,12 +13,8 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: t.bar },
-        headerTitleStyle: { color: t.barTitle, ...type({ fontSize: 18, bold: "semi" }) },
-        headerTintColor: t.barTitle,
-        // The tab's name on the left; "Talisman", the logo and Exit on the right.
-        headerTitleAlign: "left",
-        headerRight: () => <TalismanHeaderRight />,
+        // The tab's name on the left, "Talisman" and the logo in the middle, Exit on the right.
+        header: ({ options }) => <TalismanTabHeader title={options.title ?? ""} />,
         tabBarStyle: { backgroundColor: t.bar, borderTopColor: t.line },
         tabBarActiveTintColor: t.barActive,
         tabBarInactiveTintColor: t.barInk,
