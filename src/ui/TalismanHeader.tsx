@@ -1,8 +1,10 @@
-// The top bar of the four tabs: the tab's name, then "Talisman" with the logo, then a big Exit button.
+// The top bar of the four tabs: the tab's name on the left, "Talisman" with the logo in the middle, and a big Exit
+// button on the right.
 // Only Android lets an app close itself, so the Exit button is shown there and nowhere else: iPhones have no way to
 // quit an app from inside it, and a browser tab cannot be closed by the page.
 
 import { BackHandler, Image, Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useType } from "./comfort";
 import { radius, space, useTokens } from "./theme";
 
@@ -11,7 +13,7 @@ const MARK = require("../../assets/talisman-mark.png");
 /** Whether this phone lets the app close itself. */
 export const CAN_EXIT = Platform.OS === "android";
 
-/** "Talisman" and the logo, on the right of the bar. The logo is decoration: the word is what is read out. */
+/** "Talisman" and the logo, in the middle of the bar. The logo is decoration: the word is what is read out. */
 export function TalismanBrand() {
   const t = useTokens();
   const type = useType();
@@ -52,12 +54,34 @@ export function ExitButton() {
   );
 }
 
-/** Everything on the right of a tab's top bar. */
-export function TalismanHeaderRight() {
+/** A tab's whole top bar: the tab's name on the left, "Talisman" and the logo in the middle, Exit on the right. The
+ * two sides take equal room, so the middle stays in the centre of the screen. */
+export function TalismanTabHeader({ title }: { title: string }) {
+  const t = useTokens();
+  const type = useType();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, marginRight: space.md }}>
-      <TalismanBrand />
-      <ExitButton />
+    <View
+      style={{
+        backgroundColor: t.bar,
+        paddingTop: insets.top,
+        paddingLeft: insets.left + space.lg,
+        paddingRight: insets.right + space.md,
+        borderBottomWidth: 1,
+        borderBottomColor: t.line,
+      }}
+    >
+      <View style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: space.sm }}>
+        <View style={{ flex: 1, alignItems: "flex-start" }}>
+          <Text accessibilityRole="header" style={{ color: t.barTitle, ...type({ fontSize: 18, bold: "semi" }) }}>
+            {title}
+          </Text>
+        </View>
+        <TalismanBrand />
+        <View style={{ flex: 1, alignItems: "flex-end" }}>
+          <ExitButton />
+        </View>
+      </View>
     </View>
   );
 }
