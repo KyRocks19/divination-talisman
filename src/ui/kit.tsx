@@ -1,7 +1,7 @@
 // The shared pieces every screen is built from, so a change of look is made in one place.
 // Text follows the phone's own text size: nothing here turns font scaling off.
 
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View,
   type PressableProps, type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
@@ -353,4 +353,84 @@ export function ToggleRow({ label, help, value, onChange }: { label: string; hel
 export function Divider() {
   const t = useTokens();
   return <View style={{ height: 1, backgroundColor: t.line }} />;
+}
+
+/** A closed box that shows the current choice; tapping it opens the full list underneath, and picking one closes it. */
+export function Dropdown<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const t = useTokens();
+  const type = useType();
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value) ?? options[0];
+  return (
+    <View style={{ gap: space.xs }}>
+      <Text style={{ color: t.inkStrong, ...type({ fontSize: 15, bold: "semi" }) }}>{label}</Text>
+      <Pressable
+        onPress={() => setOpen(!open)}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${current?.label ?? ""}`}
+        accessibilityHint={open ? "Closes the list" : "Opens the list of choices"}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.md,
+          minHeight: 48,
+          paddingHorizontal: space.md,
+          borderRadius: radius.control,
+          borderWidth: 1,
+          borderColor: open ? t.accentInk : t.lineStrong,
+          backgroundColor: t.field,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <Text style={{ flex: 1, color: t.ink, ...type({ fontSize: 16 }) }}>{current?.label}</Text>
+        <Text style={{ color: t.inkMuted, ...type({ fontSize: 14 }) }} importantForAccessibility="no" accessibilityElementsHidden>
+          {open ? "▲" : "▼"}
+        </Text>
+      </Pressable>
+      {open && (
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={label}
+          style={{ borderRadius: radius.control, borderWidth: 1, borderColor: t.line, backgroundColor: t.surface, overflow: "hidden" }}
+        >
+          {options.map((o, i) => {
+            const on = o.value === value;
+            return (
+              <Pressable
+                key={String(o.value)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: on }}
+                onPress={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                style={({ pressed }) => ({
+                  minHeight: 48,
+                  paddingHorizontal: space.md,
+                  justifyContent: "center",
+                  borderTopWidth: i === 0 ? 0 : 1,
+                  borderTopColor: t.line,
+                  backgroundColor: on ? t.blush : "transparent",
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Text style={{ color: on ? t.onBlush : t.ink, ...type({ fontSize: 16, bold: on ? "semi" : undefined }) }}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
 }
