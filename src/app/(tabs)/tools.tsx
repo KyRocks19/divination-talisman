@@ -1,16 +1,29 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { BUILT_IN_SPREADS } from "../../core/spreads";
 import { listDecks, type Deck } from "../../db/oracle";
+import { getTextSetting, setTextSetting } from "../../db/queries";
 import { TOOLS } from "../../core/tools";
 import { ALL_TOOLS, showsPart, toolPickOptions, type ToolPick } from "../../core/tool-picker";
 import { Button, Card, Dropdown, Muted, Screen, SectionLabel, Strong } from "../../ui/kit";
+
+const TOOLS_PICK_KEY = "toolsPick";
 
 export default function Tools() {
   const db = useSQLiteContext();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [pick, setPick] = useState<ToolPick>(ALL_TOOLS);
+  // The last pick is kept with the other settings, so the page opens where the person left it.
+  useEffect(() => {
+    getTextSetting(db, TOOLS_PICK_KEY).then((saved) => {
+      if (saved) setPick(saved);
+    });
+  }, [db]);
+  const choose = (next: ToolPick) => {
+    setPick(next);
+    setTextSetting(db, TOOLS_PICK_KEY, next);
+  };
   const shows = (part: ToolPick) => showsPart(pick, part);
   const otherTools = TOOLS.filter((tool) => shows(tool.id));
 
@@ -22,7 +35,7 @@ export default function Tools() {
 
   return (
     <Screen>
-      <Dropdown label="Show" options={toolPickOptions()} value={pick} onChange={setPick} />
+      <Dropdown label="Show" options={toolPickOptions()} value={pick} onChange={choose} />
 
       {shows("tarot") && (
         <>
