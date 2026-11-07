@@ -1,5 +1,6 @@
 // Signs and dreams, and blind-target trials, in the `notes` table. Plain SQL over the `Db` interface.
 
+import type { RandomUsed } from "../core/random-source";
 import type { Db } from "./types";
 import {
   cleanNoteBody, cleanOptions, isNoteKind, parseTrial, pickTarget, type NoteKind, type Trial,
@@ -60,10 +61,10 @@ const toTrial = (r: NoteRow): TrialRow | null => {
 };
 
 /** Starts a trial: the four targets are kept and one is picked by chance, hidden from the screens until the choice is made. */
-export async function startTrial(db: Db, options: string[], rng: () => number): Promise<number> {
+export async function startTrial(db: Db, options: string[], rng: () => number, randomSource: RandomUsed | null = null): Promise<number> {
   const c = cleanOptions(options);
   if (!c.ok) throw new Error(c.error);
-  const trial: Trial = { options: c.options, target: pickTarget(rng), sealedAt: null, choice: null, judgedAt: null };
+  const trial: Trial = { options: c.options, target: pickTarget(rng), sealedAt: null, choice: null, judgedAt: null, randomSource };
   return (await db.runAsync("INSERT INTO notes (kind, body, extra, created_at) VALUES ('blind', '', ?, ?)", [JSON.stringify(trial), now()])).lastInsertRowId;
 }
 

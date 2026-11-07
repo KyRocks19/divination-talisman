@@ -5,6 +5,7 @@ import { MIGRATIONS } from "./schema";
 import type { Db, Param } from "./types";
 import type { DrawnPiece } from "../core/draw";
 import type { Confidence, Fit } from "../core/guess-core";
+import { DEFAULT_RANDOM_SETTING, cleanRandomSetting, type RandomSetting, type RandomUsed } from "../core/random-source";
 
 const now = () => new Date().toISOString();
 
@@ -38,6 +39,8 @@ export interface ReadingRow {
   spread_name: string | null;
   /** The oracle deck a pull was made with; null for tarot, and after the deck is deleted. */
   deck_id: number | null;
+  /** Where the chance came from (migration 4): 'random.org', 'device' or 'device-fallback'; null before it. */
+  random_source: string | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -72,6 +75,8 @@ export interface NewReading {
   spreadName: string | null;
   deckId?: number | null;
   pieces: DrawnPiece[];
+  /** Where the chance came from; null when nothing was left to chance (a pendulum answer). */
+  randomSource?: RandomUsed | null;
   /** What the person sensed before the reveal. `null` means the step was turned off; `skipped` means they set it aside this time. */
   sensed: { guess: string; skipped: boolean; confidence: Confidence | null; sealedAt: string } | null;
 }
@@ -82,8 +87,8 @@ export async function createReading(db: Db, r: NewReading): Promise<number> {
   await db.withTransactionAsync(async () => {
     const t = now();
     const res = await db.runAsync(
-      "INSERT INTO readings (tool, question, spread_id, spread_name, deck_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [r.tool, r.question.trim(), r.spreadId, r.spreadName, r.deckId ?? null, t, t],
+      "INSERT INTO readings (tool, question, spread_id, spread_name, deck_id, random_source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [r.tool, r.question.trim(), r.spreadId, r.spreadName, r.deckId ?? null, r.randomSource ?? null, t, t],
     );
     id = res.lastInsertRowId;
     for (const p of r.pieces) {
@@ -330,6 +335,8 @@ export interface Settings {
   lookBackReminders: boolean;
   /** A phone reminder 30 days after the last backup file. */
   backupReminders: boolean;
+  /** Where the chance in every reading comes from: random.org (the default) or the phone's own numbers. */
+  randomSource: RandomSetting;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -340,6 +347,7 @@ export const DEFAULT_SETTINGS: Settings = {
   photoMode: "copy",
   lookBackReminders: true,
   backupReminders: true,
+  randomSource: DEFAULT_RANDOM_SETTING,
 };
 
 const BOOLEAN_SETTINGS = ["lock", "senseFirst", "reversals", "lookBackReminders", "backupReminders"] as const;
@@ -351,6 +359,7 @@ export async function getSettings(db: Db): Promise<Settings> {
     if ((BOOLEAN_SETTINGS as readonly string[]).includes(key)) s[key as (typeof BOOLEAN_SETTINGS)[number]] = value === "1";
     if (key === "lastBackupAt") s.lastBackupAt = value || null;
     if (key === "photoMode") s.photoMode = value === "link" ? "link" : "copy";
+    if (key === "randomSource") s.randomSource = cleanRandomSetting(value);
   }
   return s;
 }

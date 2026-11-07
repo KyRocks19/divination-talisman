@@ -1,7 +1,8 @@
 # Divination Talisman: notes for coding sessions
 
 The phone edition of Divination Station: a tarot app that evolves with the person to help them tune their own
-intuition. Every reading stays on the phone. No server, no accounts, no analytics, no network connections. The plan
+intuition. Every reading stays on the phone. No server, no accounts, no analytics, and no network connections except
+random.org for random numbers (rule 5). The plan
 is the doc "Divination Station Mobile: build plan"; the desktop app is `KyRocks19/divination-station-takeoff`.
 
 When a change is done and the checks below pass, push its branch and open a pull request to `main`. Never push straight
@@ -25,7 +26,9 @@ type definitions in `node_modules/<package>/build/*.d.ts` before using an API. K
 3. **Keep history.** Changing a meaning adds a version (`meaning_history`); emptying it is the person's choice.
 4. **Everything can be edited, emptied and deleted** by the person.
 5. **Nothing leaves the phone** except a backup file or shared text the person sends themselves. No analytics, crash
-   reporting or update checks.
+   reporting or update checks. The one connection is a request to random.org for plain numbers, the default source
+   of chance (the person can choose the phone's own numbers instead). Every draw goes through `drawWithSetting` in
+   `src/lib/random.ts`; when random.org cannot be used it falls back to the phone and the screen says so, never silently.
 6. **Tokens, not colours.** Screens use `useTokens()` from `src/ui/theme.ts` and the pieces in `src/ui/kit.tsx`; no
    hex values in screens (data colours for spread positions are the exception).
 7. **Plain, literal words** in the interface. Follow the phone's text size; never turn font scaling off.

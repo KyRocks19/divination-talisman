@@ -2,7 +2,10 @@
 
 The phone edition of [Divination Station](https://github.com/KyRocks19/divination-station-takeoff): a tarot app that
 helps a person tune their own intuition. Every reading stays on the phone. There is no account, no server and no
-sign-in, and the app makes no network connections.
+sign-in. The one network connection is to random.org, which by default supplies the random numbers for every reading
+(only a request for numbers is sent, never anything the person wrote). The person can switch to the phone's own
+random numbers in Me, under Practice; if random.org cannot be reached, the phone's numbers are used and the reading
+says so.
 
 Built with Expo (React Native) and on-device SQLite, for iPhone and Android from one codebase.
 

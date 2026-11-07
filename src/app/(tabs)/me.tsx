@@ -21,10 +21,15 @@ import { applyDesktopImport } from "../../db/desktop-import";
 import { HERE, THIS_DEVICE, ON_WEB } from "../../lib/where";
 import { useReloadComfort } from "../../ui/comfort";
 import { ComfortSettings } from "../../ui/ComfortSettings";
-import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, Section, Strong, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, RadioList, Screen, Section, Strong, ToggleRow } from "../../ui/kit";
+import { RANDOM_SETTINGS, randomSettingHelp, randomSettingLabel } from "../../core/random-source";
 
 /** The version in app.json; a release build gets it from its tag (.github/workflows/android-apk.yml). */
 const APP_VERSION = Constants.expoConfig?.version ?? "unknown";
+
+/** The one connection the app can make, said plainly on the privacy card. */
+const CHANCE_PRIVACY =
+  "Its one connection is to random.org, for the random numbers in a reading, and only while random.org is chosen under Practice. That request asks for numbers and carries nothing you wrote; random.org sees your internet address.";
 
 /** The parts of the page, so a note or a problem is shown in the part where the person did something. */
 type Part = "practice" | "look" | "phone" | "reminders" | "backup" | "support" | "privacy";
@@ -202,7 +207,7 @@ export default function Me() {
     <Screen>
       <Section
         title="Practice"
-        about="Write what you sense first, and reversed cards"
+        about={`Write what you sense first, reversed cards, and chance from ${s.randomSource === "random.org" ? "random.org" : THIS_DEVICE}`}
         open={isOpen("practice")}
         onToggle={() => toggle("practice")}
       >
@@ -215,6 +220,18 @@ export default function Me() {
           />
           <Divider />
           <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
+        </Card>
+        <Card>
+          <RadioList
+            label="Where chance comes from"
+            options={RANDOM_SETTINGS.map((r) => ({ value: r, label: randomSettingLabel(r, THIS_DEVICE), note: randomSettingHelp(r, THIS_DEVICE) }))}
+            value={s.randomSource}
+            onChange={(v) => change("randomSource", v)}
+          />
+          <Muted>
+            This is used by every tool that leaves something to chance: tarot, your oracle decks, runes, ogham, playing cards, dice and coins, the I
+            Ching, geomancy, lots and blind-target trials. A pendulum is never left to the app. Each reading shows where its chance came from.
+          </Muted>
         </Card>
       </Section>
 
@@ -352,7 +369,7 @@ export default function Me() {
 
       <Section
         title="Privacy and about"
-        about={ON_WEB ? "Nothing you write leaves this browser" : "Nothing leaves this phone"}
+        about={ON_WEB ? "Nothing you write leaves this browser" : "Nothing you write leaves this phone"}
         open={isOpen("privacy")}
         onToggle={() => toggle("privacy")}
       >
@@ -360,8 +377,8 @@ export default function Me() {
           <Strong>Privacy</Strong>
           <Body>
             {ON_WEB
-              ? "Nothing you write leaves this browser. The app has no account, no server, no analytics and no crash reports, and once the page has loaded it makes no connections. A backup file goes only where you send it. itch.io, which hosts the page, has its own privacy policy."
-              : "Nothing leaves this phone. The app has no account, no server, no analytics and no crash reports, and it makes no connections. A backup file goes only where you send it."}
+              ? `Nothing you write leaves this browser. The app has no account, no server, no analytics and no crash reports. ${CHANCE_PRIVACY} A backup file goes only where you send it. itch.io, which hosts the page, has its own privacy policy.`
+              : `Nothing you write leaves this phone. The app has no account, no server, no analytics and no crash reports. ${CHANCE_PRIVACY} A backup file goes only where you send it.`}
           </Body>
         </Card>
         <Card>

@@ -9,12 +9,15 @@ import { useSQLiteContext } from "expo-sqlite";
 import { BLIND_WORDS, MAX_IMPRESSION_CHARS, MAX_OPTION_CHARS, OPTION_COUNT, cleanOptions, trialState } from "../../core/practice";
 import { chooseOption, deleteNote, getTrial, sealImpression, startTrial, type TrialRow } from "../../db/notes";
 import { dayTimeText } from "../../lib/dates";
-import { secureRandom } from "../../lib/random";
+import { drawWithSetting } from "../../lib/random";
+import { getSettings } from "../../db/queries";
+import { randomUsedWords } from "../../core/random-source";
+import { THIS_DEVICE } from "../../lib/where";
 import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title } from "../../ui/kit";
 
 export default function TrialScreen() {
   const db = useSQLiteContext();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, chanceProblem } = useLocalSearchParams<{ id: string; chanceProblem?: string }>();
   const isNew = id === "new";
   const [row, setRow] = useState<TrialRow | null | undefined>(isNew ? null : undefined);
   const [options, setOptions] = useState<string[]>(Array(OPTION_COUNT).fill(""));
@@ -75,8 +78,10 @@ export default function TrialScreen() {
             act(async () => {
               const c = cleanOptions(options);
               if (!c.ok) throw new Error(c.error);
-              const newId = await startTrial(db, c.options, secureRandom);
-              router.replace(`/blind/${newId}`);
+              // One number from the source of chance chosen in Settings picks the target.
+              const drawn = await drawWithSetting((await getSettings(db)).randomSource, (rng) => rng());
+              const newId = await startTrial(db, c.options, () => drawn.result, drawn.used);
+              router.replace({ pathname: "/blind/[id]", params: { id: String(newId), ...(drawn.problem ? { chanceProblem: drawn.problem } : {}) } });
             })
           }
         />
@@ -94,6 +99,17 @@ export default function TrialScreen() {
         <>
           <Title>Your impression</Title>
           <Body>One of the four targets has been picked by chance and is hidden. Before you see the four, write what comes to you: shapes, colours, feelings, words.</Body>
+          {r.trial.randomSource === "device-fallback" ? (
+            <Card>
+              <Strong>random.org was not used</Strong>
+              <Body>
+                {chanceProblem ? `${chanceProblem} ` : "random.org could not be reached when this trial was started. "}
+                The target was picked with {THIS_DEVICE}'s own secure random numbers instead.
+              </Body>
+            </Card>
+          ) : r.trial.randomSource ? (
+            <Muted>{randomUsedWords(r.trial.randomSource, THIS_DEVICE)}</Muted>
+          ) : null}
           <Field label="What do you sense?" value={impression} onChangeText={(v) => (setImpression(v), setError(null))} multiline maxLength={MAX_IMPRESSION_CHARS} autoFocus />
           <Button label="Seal it" disabled={busy || !impression.trim()} onPress={() => act(async () => (await sealImpression(db, r.id, impression), await load()))} />
         </>

@@ -28,13 +28,14 @@ import {
 } from "../../db/predictions";
 import { OUTCOME_LABELS, dayWords } from "../../core/predictions";
 import { ICHING_LINE_WORDS, coinTally, geomancyHow, getTool, ichingCastOf, throwTotal, type ToolDef } from "../../core/tools";
+import { cleanRandomUsed, randomUsedWords } from "../../core/random-source";
 import { Glyph } from "../../ui/Glyph";
 import { TraditionalText } from "../../ui/TraditionalText";
 
 export default function ReadingScreen() {
   const db = useSQLiteContext();
   const nav = useNavigation();
-  const { id, reveal } = useLocalSearchParams<{ id: string; reveal?: string }>();
+  const { id, reveal, chanceProblem } = useLocalSearchParams<{ id: string; reveal?: string; chanceProblem?: string }>();
   const readingId = Number(id);
   const [data, setData] = useState<FullReading | null | undefined>(undefined);
   const [own, setOwn] = useState<Map<string, string>>(new Map());
@@ -80,6 +81,7 @@ export default function ReadingScreen() {
 
   const { reading, pieces, sensed, journal } = data;
   const tool = getTool(reading.tool);
+  const randomUsed = cleanRandomUsed(reading.random_source);
   const allShown = pieces.every((p) => revealed.has(p.position));
 
   function turnOver(position: number) {
@@ -96,7 +98,18 @@ export default function ReadingScreen() {
           {dayTimeText(reading.created_at)}
           {oracle?.deckName ? ` · ${oracle.deckName}` : ""}
         </Muted>
+        {randomUsed && randomUsed !== "device-fallback" && <Muted>{randomUsedWords(randomUsed, THIS_DEVICE)}</Muted>}
       </View>
+
+      {randomUsed === "device-fallback" && (
+        <Card>
+          <Strong>random.org was not used</Strong>
+          <Body>
+            {chanceProblem ? `${chanceProblem} ` : "random.org could not be reached when this reading was made. "}
+            The chance in this reading came from {THIS_DEVICE}'s own secure random numbers instead.
+          </Body>
+        </Card>
+      )}
 
       {sensed && !sensed.skipped && (
         <Card>
