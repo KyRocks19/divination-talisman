@@ -19,9 +19,10 @@ import { CardImage } from "../../ui/CardImage";
 import { OracleImage } from "../../ui/OracleImage";
 import { cardsById, getDeck, ORACLE_TOOL, type OracleCard } from "../../db/oracle";
 import type { FieldDef } from "../../core/oracle";
-import { Body, Button, Card, ErrorNote, Field, Loading, Muted, Screen, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ErrorNote, Field, Loading, Muted, Screen, Section, SectionLabel, Strong, Title, ToggleRow } from "../../ui/kit";
 import { radius, space, useTokens } from "../../ui/theme";
-import { HERE, THIS_DEVICE } from "../../lib/where";
+import { HERE, ON_WEB, THIS_DEVICE } from "../../lib/where";
+import { WholeReading } from "../../ui/WholeReading";
 import {
   addTagToReading, listTags, predictionsForReading, removeTagFromReading, tagsForReading, cleanTagName, MAX_TAG_LENGTH,
   type PredictionRow, type TagRow, type TagWithCount,
@@ -182,34 +183,48 @@ function Pieces({ pieces, revealed, own, oracle, tool, spreadId, onTurn }: {
   const itemWidth = pieces.length === 1 ? width - space.lg * 2 : Math.min(width * 0.78, 420);
   const spread = spreadId ? getSpread(spreadId) : undefined;
   const cast = ichingCastOf(spreadId);
-  return (
-    <FlatList
-      horizontal
-      data={pieces}
-      keyExtractor={(p) => String(p.position)}
-      showsHorizontalScrollIndicator={false}
-      snapToInterval={itemWidth + space.md}
-      decelerationRate="fast"
-      ItemSeparatorComponent={() => <View style={{ width: space.md }} />}
-      style={{ marginHorizontal: -space.lg }}
-      contentContainerStyle={{ paddingHorizontal: space.lg }}
-      renderItem={({ item, index }) => (
-        <PieceCard
-          piece={item}
-          index={index}
-          total={pieces.length}
-          width={itemWidth}
-          shown={revealed.has(item.position)}
-          own={own.get(`${item.piece_id}:${item.reversed ? "reversed" : "upright"}`)}
-          oracle={oracle}
-          tool={tool}
-          changing={cast && item.position === 0 ? cast.values.flatMap((v, i) => (v === 6 || v === 9 ? [i + 1] : [])) : undefined}
-          prompt={spread?.positions[item.position]?.description ?? (tool?.kind === "geomancy" ? geomancyHow(item.position) : undefined)}
-          color={spread?.positions[item.position]?.color}
-          onTurn={() => onTurn(item.position)}
-        />
-      )}
+  const [wholeOpen, setWholeOpen] = useState(false);
+  const renderPiece = (item: PieceRow, index: number) => (
+    <PieceCard
+      piece={item}
+      index={index}
+      total={pieces.length}
+      width={itemWidth}
+      shown={revealed.has(item.position)}
+      own={own.get(`${item.piece_id}:${item.reversed ? "reversed" : "upright"}`)}
+      oracle={oracle}
+      tool={tool}
+      changing={cast && item.position === 0 ? cast.values.flatMap((v, i) => (v === 6 || v === 9 ? [i + 1] : [])) : undefined}
+      prompt={spread?.positions[item.position]?.description ?? (tool?.kind === "geomancy" ? geomancyHow(item.position) : undefined)}
+      color={spread?.positions[item.position]?.color}
+      onTurn={() => onTurn(item.position)}
     />
+  );
+  return (
+    <>
+      <FlatList
+        horizontal
+        data={pieces}
+        keyExtractor={(p) => String(p.position)}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={itemWidth + space.md}
+        decelerationRate="fast"
+        ItemSeparatorComponent={() => <View style={{ width: space.md }} />}
+        style={{ marginHorizontal: -space.lg }}
+        contentContainerStyle={{ paddingHorizontal: space.lg }}
+        renderItem={({ item, index }) => renderPiece(item, index)}
+      />
+      {pieces.length > 1 && (
+        <Section
+          title="The whole reading"
+          about={ON_WEB ? "All the cards at once. Pinch, or hold Ctrl and scroll, to zoom in and out." : "All the cards at once. Pinch to zoom in and out."}
+          open={wholeOpen}
+          onToggle={() => setWholeOpen(!wholeOpen)}
+        >
+          <WholeReading items={pieces} keyOf={(p) => String(p.position)} itemWidth={itemWidth} renderItem={renderPiece} />
+        </Section>
+      )}
+    </>
   );
 }
 
