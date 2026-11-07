@@ -1,4 +1,5 @@
-// Me: settings, the phone lock, backups, privacy, support and credits.
+// Me: settings, the phone lock, backups, privacy, support and credits. Each part opens and closes on its own, so
+// the page can be read at a glance; all are closed when the page first opens.
 
 import { useCallback, useState } from "react";
 import { Alert, Linking } from "react-native";
@@ -20,16 +21,21 @@ import { applyDesktopImport } from "../../db/desktop-import";
 import { HERE, THIS_DEVICE, ON_WEB } from "../../lib/where";
 import { useReloadComfort } from "../../ui/comfort";
 import { ComfortSettings } from "../../ui/ComfortSettings";
-import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, SectionLabel, Strong, ToggleRow } from "../../ui/kit";
+import { Body, Button, Card, ChoiceRow, Divider, ErrorNote, Loading, Muted, Screen, Section, Strong, ToggleRow } from "../../ui/kit";
 
 /** The version in app.json; a release build gets it from its tag (.github/workflows/android-apk.yml). */
 const APP_VERSION = Constants.expoConfig?.version ?? "unknown";
+
+/** The parts of the page, so a note or a problem is shown in the part where the person did something. */
+type Part = "practice" | "look" | "phone" | "reminders" | "backup" | "support" | "privacy";
 
 export default function Me() {
   const db = useSQLiteContext();
   const [s, setS] = useState<Settings | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [where, setWhere] = useState<Part>("backup");
+  const [open, setOpen] = useState<Set<Part>>(new Set());
   const reloadComfort = useReloadComfort();
 
   useFocusEffect(
@@ -40,12 +46,31 @@ export default function Me() {
 
   if (!s) return <Loading />;
 
+  const isOpen = (p: Part) => open.has(p);
+  const toggle = (p: Part) =>
+    setOpen((was) => {
+      const next = new Set(was);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+
+  /** The note or problem from the last thing done, shown only in the part where it was done. */
+  const said = (p: Part) =>
+    where === p ? (
+      <>
+        {note && <Body accessibilityLiveRegion="polite">{note}</Body>}
+        {error && <ErrorNote>{error}</ErrorNote>}
+      </>
+    ) : null;
+
   async function change<K extends keyof Settings>(key: K, value: Settings[K]) {
     await setSetting(db, key, value);
     setS(await getSettings(db));
   }
 
   async function toggleReminder(key: "lookBackReminders" | "backupReminders", on: boolean) {
+    setWhere("reminders");
     setError(null);
     setNote(null);
     await change(key, on);
@@ -56,6 +81,8 @@ export default function Me() {
   }
 
   async function toggleLock(on: boolean) {
+    setWhere("phone");
+    setNote(null);
     setError(null);
     if (on && !(await lockIsAvailable())) {
       setError("This phone has no Face ID, fingerprint or passcode set up, so the app cannot be locked. Set one up in the phone's settings first.");
@@ -67,6 +94,7 @@ export default function Me() {
   }
 
   async function backUp() {
+    setWhere("backup");
     setError(null);
     setNote(null);
     try {
@@ -88,6 +116,7 @@ export default function Me() {
   }
 
   async function restore() {
+    setWhere("backup");
     setError(null);
     setNote(null);
     const picked = await DocumentPicker.getDocumentAsync({ type: ["application/zip", "application/json", "*/*"], copyToCacheDirectory: true });
@@ -130,6 +159,7 @@ export default function Me() {
   }
 
   async function bringInFromDesktop() {
+    setWhere("backup");
     setError(null);
     setNote(null);
     const picked = await DocumentPicker.getDocumentAsync({ type: ["application/json", "*/*"], copyToCacheDirectory: true });
@@ -170,69 +200,90 @@ export default function Me() {
 
   return (
     <Screen>
-      <SectionLabel>Practice</SectionLabel>
-      <Card>
-        <ToggleRow
-          label="Write what you sense first"
-          help="Before cards are turned over, write a first impression. You can always skip it for one reading."
-          value={s.senseFirst}
-          onChange={(v) => change("senseFirst", v)}
-        />
-        <Divider />
-        <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
-      </Card>
+      <Section
+        title="Practice"
+        about="Write what you sense first, and reversed cards"
+        open={isOpen("practice")}
+        onToggle={() => toggle("practice")}
+      >
+        <Card>
+          <ToggleRow
+            label="Write what you sense first"
+            help="Before cards are turned over, write a first impression. You can always skip it for one reading."
+            value={s.senseFirst}
+            onChange={(v) => change("senseFirst", v)}
+          />
+          <Divider />
+          <ToggleRow label="Reversed cards" help="Cards can come up upside down." value={s.reversals} onChange={(v) => change("reversals", v)} />
+        </Card>
+      </Section>
 
-      <SectionLabel>Look and comfort</SectionLabel>
-      <ComfortSettings />
+      <Section
+        title="Look and comfort"
+        about="Font, text size, spacing, motion, colours and swiping"
+        open={isOpen("look")}
+        onToggle={() => toggle("look")}
+      >
+        <ComfortSettings />
+      </Section>
 
-{ON_WEB ? (
-        <>
-      <SectionLabel>Photos for your oracle cards</SectionLabel>
-      <Card>
-        <Muted>
-          In the browser version, each photo is kept as a smaller copy with its card, in this browser. A browser cannot link to your photo
-          library.
-        </Muted>
-      </Card>
-
-        </>
+      {ON_WEB ? (
+        <Section
+          title="Photos for your oracle cards"
+          about="How photos are kept in this browser"
+          open={isOpen("phone")}
+          onToggle={() => toggle("phone")}
+        >
+          <Card>
+            <Muted>
+              In the browser version, each photo is kept as a smaller copy with its card, in this browser. A browser cannot link to your photo
+              library.
+            </Muted>
+          </Card>
+        </Section>
       ) : (
-        <>
-      <SectionLabel>Photos for your oracle cards</SectionLabel>
-      <Card>
-        <ChoiceRow
-          label="When you add a photo"
-          options={[
-            { value: "copy", label: "Keep a copy in the app" },
-            { value: "link", label: "Link to your photo library" },
-          ]}
-          value={s.photoMode}
-          onChange={(v) => v && change("photoMode", v)}
-        />
-        <Muted>
-          {s.photoMode === "copy"
-            ? "The app keeps its own copy of each photo. It uses more space, and the card keeps its picture even if you delete the photo from your library."
-            : "The app points to the photo in your library and keeps no copy, so it uses no extra space. If you delete the photo from your library, the card loses its picture. Photos you take with the camera are saved to your library first."}
-        </Muted>
-        <Muted>This applies to photos you add from now on. Backup files always hold a copy of every picture.</Muted>
-      </Card>
-
-      <SectionLabel>Lock</SectionLabel>
-      <Card>
-        <ToggleRow
-          label="Lock the app"
-          help="Ask for Face ID, a fingerprint or the phone's passcode when the app opens."
-          value={s.lock}
-          onChange={toggleLock}
-        />
-      </Card>
-
-        </>
+        <Section
+          title="Photos and lock"
+          about={`Photos: ${s.photoMode === "copy" ? "keep a copy" : "link to your library"}. Lock: ${s.lock ? "on" : "off"}.`}
+          open={isOpen("phone")}
+          onToggle={() => toggle("phone")}
+        >
+          <Card>
+            <ChoiceRow
+              label="When you add a photo to an oracle card"
+              options={[
+                { value: "copy", label: "Keep a copy in the app" },
+                { value: "link", label: "Link to your photo library" },
+              ]}
+              value={s.photoMode}
+              onChange={(v) => v && change("photoMode", v)}
+            />
+            <Muted>
+              {s.photoMode === "copy"
+                ? "The app keeps its own copy of each photo. It uses more space, and the card keeps its picture even if you delete the photo from your library."
+                : "The app points to the photo in your library and keeps no copy, so it uses no extra space. If you delete the photo from your library, the card loses its picture. Photos you take with the camera are saved to your library first."}
+            </Muted>
+            <Muted>This applies to photos you add from now on. Backup files always hold a copy of every picture.</Muted>
+          </Card>
+          <Card>
+            <ToggleRow
+              label="Lock the app"
+              help="Ask for Face ID, a fingerprint or the phone's passcode when the app opens."
+              value={s.lock}
+              onChange={toggleLock}
+            />
+          </Card>
+          {said("phone")}
+        </Section>
       )}
 
       {REMINDERS_AVAILABLE && (
-        <>
-          <SectionLabel>Reminders</SectionLabel>
+        <Section
+          title="Reminders"
+          about="Look-back days and backups"
+          open={isOpen("reminders")}
+          onToggle={() => toggle("reminders")}
+        >
           <Card>
             <ToggleRow
               label="Look-back days"
@@ -250,65 +301,81 @@ export default function Me() {
             <Muted>Reminders are set on this phone. They never show your questions or what you wrote, and nothing is sent anywhere.</Muted>
             <Button label="Open the phone's settings" variant="text" onPress={() => Linking.openSettings().catch(() => undefined)} />
           </Card>
-        </>
+          {said("reminders")}
+        </Section>
       )}
 
-      <SectionLabel>Backup</SectionLabel>
-      <Card>
-        <Body>
-          {ON_WEB
-            ? "Your readings are kept only in this browser, on this device. If the browser's data for this page is cleared, they are gone, unless you have a backup file."
-            : "Your readings are kept only on this phone. If the phone is lost or the app is deleted, they are gone, unless you have a backup file."}
-        </Body>
-        {ON_WEB && (
+      <Section
+        title="Backup and the desktop app"
+        about={s.lastBackupAt ? `Last backup: ${dayTimeText(s.lastBackupAt)}` : "No backup made yet."}
+        open={isOpen("backup")}
+        onToggle={() => toggle("backup")}
+      >
+        <Card>
+          <Body>
+            {ON_WEB
+              ? "Your readings are kept only in this browser, on this device. If the browser's data for this page is cleared, they are gone, unless you have a backup file."
+              : "Your readings are kept only on this phone. If the phone is lost or the app is deleted, they are gone, unless you have a backup file."}
+          </Body>
+          {ON_WEB && (
+            <Muted>
+              On an iPhone or iPad, Safari can clear what a website keeps when you have not opened it for 7 days. Open the app at least once a
+              week, and make a backup file often.
+            </Muted>
+          )}
+          <Button label="Make a backup file" onPress={backUp} />
+          <Button label="Restore from a backup file" variant="quiet" onPress={restore} />
+        </Card>
+        <Card>
+          <Strong>From the desktop app</Strong>
+          <Body>Bring your tarot readings, journal entries, tags, card meanings and predictions over from Divination Station.</Body>
           <Muted>
-            On an iPhone or iPad, Safari can clear what a website keeps when you have not opened it for 7 days. Open the app at least once a
-            week, and make a backup file often.
+            In the desktop app, open Settings and download your data as JSON. Put the file somewhere this {ON_WEB ? "browser" : "phone"} can
+            open, then choose it here. It only adds: nothing {HERE} is changed or deleted, and bringing in the same file twice adds nothing new.
           </Muted>
-        )}
-        <Muted>{s.lastBackupAt ? `Last backup: ${dayTimeText(s.lastBackupAt)}` : "No backup made yet."}</Muted>
-        <Button label="Make a backup file" onPress={backUp} />
-        <Button label="Restore from a backup file" variant="quiet" onPress={restore} />
-      </Card>
+          <Button label="Choose the desktop export file" variant="quiet" onPress={bringInFromDesktop} />
+        </Card>
+        {said("backup")}
+      </Section>
 
-      <SectionLabel>From the desktop app</SectionLabel>
-      <Card>
-        <Body>Bring your tarot readings, journal entries, tags, card meanings and predictions over from Divination Station.</Body>
-        <Muted>
-          In the desktop app, open Settings and download your data as JSON. Put the file somewhere this {ON_WEB ? "browser" : "phone"} can open,
-          then choose it here. It only adds: nothing {HERE} is changed or deleted, and bringing in the same file twice adds nothing new.
-        </Muted>
-        <Button label="Choose the desktop export file" variant="quiet" onPress={bringInFromDesktop} />
-      </Card>
-      {note && <Body accessibilityLiveRegion="polite">{note}</Body>}
-      {error && <ErrorNote>{error}</ErrorNote>}
+      <Section
+        title="If you need support"
+        about="Crisis lines and findahelpline.com"
+        open={isOpen("support")}
+        onToggle={() => toggle("support")}
+      >
+        <Card>
+          <Body>{CRISIS_LINES}</Body>
+          <Button label="Open findahelpline.com" variant="text" onPress={() => Linking.openURL("https://findahelpline.com")} />
+        </Card>
+      </Section>
 
-      <SectionLabel>Privacy</SectionLabel>
-      <Card>
-        <Body>
-          {ON_WEB
-            ? "Nothing you write leaves this browser. The app has no account, no server, no analytics and no crash reports, and once the page has loaded it makes no connections. A backup file goes only where you send it. itch.io, which hosts the page, has its own privacy policy."
-            : "Nothing leaves this phone. The app has no account, no server, no analytics and no crash reports, and it makes no connections. A backup file goes only where you send it."}
-        </Body>
-      </Card>
+      <Section
+        title="Privacy and about"
+        about={ON_WEB ? "Nothing you write leaves this browser" : "Nothing leaves this phone"}
+        open={isOpen("privacy")}
+        onToggle={() => toggle("privacy")}
+      >
+        <Card>
+          <Strong>Privacy</Strong>
+          <Body>
+            {ON_WEB
+              ? "Nothing you write leaves this browser. The app has no account, no server, no analytics and no crash reports, and once the page has loaded it makes no connections. A backup file goes only where you send it. itch.io, which hosts the page, has its own privacy policy."
+              : "Nothing leaves this phone. The app has no account, no server, no analytics and no crash reports, and it makes no connections. A backup file goes only where you send it."}
+          </Body>
+        </Card>
+        <Card>
+          <Strong>Talisman</Strong>
+          <Muted>
+            A phone edition of Divination Station. You are the author of every meaning here; the app is a mirror for your own intuition.
+          </Muted>
+          <Muted>
+            Card pictures: Pamela Colman Smith's 1909 drawings, in the public domain; scans cleaned by Luciella Elisabeth Scarlett. Card texts by
+            Felix G and Kylie B. Code under the GNU AGPL 3.0. Details are in the NOTICE file.
+          </Muted>
+        </Card>
+      </Section>
 
-      <SectionLabel>If you need support</SectionLabel>
-      <Card>
-        <Body>{CRISIS_LINES}</Body>
-        <Button label="Open findahelpline.com" variant="text" onPress={() => Linking.openURL("https://findahelpline.com")} />
-      </Card>
-
-      <SectionLabel>About</SectionLabel>
-      <Card>
-        <Strong>Talisman</Strong>
-        <Muted>
-          A phone edition of Divination Station. You are the author of every meaning here; the app is a mirror for your own intuition.
-        </Muted>
-        <Muted>
-          Card pictures: Pamela Colman Smith's 1909 drawings, in the public domain; scans cleaned by Luciella Elisabeth Scarlett. Card texts by
-          Felix G and Kylie B. Code under the GNU AGPL 3.0. Details are in the NOTICE file.
-        </Muted>
-      </Card>
       <Muted accessibilityRole="text" style={{ textAlign: "center" }}>
         Talisman, version {APP_VERSION}
       </Muted>

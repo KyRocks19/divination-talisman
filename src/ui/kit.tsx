@@ -354,3 +354,58 @@ export function Divider() {
   const t = useTokens();
   return <View style={{ height: 1, backgroundColor: t.line }} />;
 }
+
+/**
+ * A part of a page that opens and closes, so a long page of settings can be read at a glance. The heading and one
+ * plain line about what is inside are always shown; the rest only when the person opens it.
+ */
+export function Section({
+  title,
+  about,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  about?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const t = useTokens();
+  const type = useType();
+  const gap = useGap();
+  return (
+    <View style={{ gap: gap(space.md) }}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={about ? `${title}. ${about}` : title}
+        accessibilityHint={open ? "Closes this part" : "Opens this part"}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.md,
+          minHeight: 56,
+          paddingHorizontal: space.lg,
+          paddingVertical: space.md,
+          borderRadius: radius.card,
+          borderWidth: 1,
+          borderColor: open ? t.lineStrong : t.line,
+          backgroundColor: t.surface,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color: t.inkStrong, ...type({ fontSize: 17, bold: "semi" }) }}>{title}</Text>
+          {about ? <Muted>{about}</Muted> : null}
+        </View>
+        <Text accessible={false} style={{ color: t.accentInk, ...type({ fontSize: 18, bold: true }) }}>
+          {open ? "−" : "+"}
+        </Text>
+      </Pressable>
+      {open && <View style={{ gap: gap(space.md) }}>{children}</View>}
+    </View>
+  );
+}
