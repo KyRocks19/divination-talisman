@@ -99,3 +99,12 @@ test("notes and trials round-trip through a backup", async () => {
   assert.equal((await listNotes(other))[0].body, "A door in the sea");
   assert.equal(trialState((await getTrial(other, id))!.trial), "sealed");
 });
+
+test("a trial keeps where the chance that picked its target came from", async () => {
+  const db = memoryDb();
+  await migrate(db);
+  const id = await startTrial(db, ["1", "2", "3", "4"], () => 0.5, "random.org");
+  assert.equal((await getTrial(db, id))!.trial.randomSource, "random.org");
+  const old = await startTrial(db, ["1", "2", "3", "4"], () => 0.5);
+  assert.equal((await getTrial(db, old))!.trial.randomSource, null);
+});

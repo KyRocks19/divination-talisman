@@ -6,6 +6,7 @@
 
 // ── Signs and dreams ────────────────────────────────────────────────────────────────────────────────
 
+import { cleanRandomUsed, type RandomUsed } from "./random-source";
 export type NoteKind = "sign" | "dream";
 export const NOTE_KINDS: NoteKind[] = ["sign", "dream"];
 export const MAX_NOTE_CHARS = 5000;
@@ -79,6 +80,8 @@ export interface Trial {
   sealedAt: string | null;
   choice: number | null;
   judgedAt: string | null;
+  /** Where the chance that picked the target came from; missing on trials made before this was kept. */
+  randomSource?: RandomUsed | null;
 }
 
 export type TrialState = "open" | "sealed" | "judged";
@@ -100,6 +103,7 @@ export function parseTrial(extra: string): Trial | null {
       sealedAt: typeof t.sealedAt === "string" ? t.sealedAt : null,
       choice: typeof t.choice === "number" && t.choice >= 0 && t.choice < OPTION_COUNT ? t.choice : null,
       judgedAt: typeof t.judgedAt === "string" ? t.judgedAt : null,
+      randomSource: cleanRandomUsed(t.randomSource),
     };
   } catch {
     return null;

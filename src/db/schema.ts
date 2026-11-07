@@ -155,6 +155,12 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX predictions_look_back ON predictions (look_back_on);
   CREATE INDEX reading_tags_tag ON reading_tags (tag_id);
   `,
+
+  // 4: where a reading's chance came from: 'random.org', 'device', or 'device-fallback' (random.org was chosen but
+  // could not be reached, so the phone's own numbers were used). Null on older readings and on pendulum answers.
+  `
+  ALTER TABLE readings ADD COLUMN random_source TEXT;
+  `,
 ];
 
 /**

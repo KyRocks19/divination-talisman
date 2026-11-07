@@ -7,11 +7,13 @@ import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { BUILT_IN_SPREADS, getSpread } from "../../core/spreads";
-import { drawForSpread, drawPieces } from "../../core/draw";
+import { drawForSpread, drawPieces, type Rng } from "../../core/draw";
 import { CONFIDENCE_LABELS, FITS, MAX_GUESS_LENGTH, cleanGuessText, type Confidence } from "../../core/guess-core";
 import { createReading, getSettings, type Settings } from "../../db/queries";
 import { getDeck, listCards, ORACLE_TOOL, type Deck, type OracleCard } from "../../db/oracle";
-import { secureRandom } from "../../lib/random";
+import { drawWithSetting } from "../../lib/random";
+import type { RandomUsed } from "../../core/random-source";
+import { THIS_DEVICE } from "../../lib/where";
 import {
   MAX_DRAW_LOTS, MAX_THROW_COUNT, SWINGS, THROW_OBJECTS, castGeomancy, castIChing, drawLots, drawTool, getTool, lotNames, throwDice,
 } from "../../core/tools";
@@ -86,6 +88,18 @@ export default function NewReading() {
     : tool && tool.kind !== "draw" && tool.kind !== "lots" ? { now: "Cast it", seal: "Seal it and cast", before: "anything is cast" }
       : { now: "Draw", seal: "Seal it and draw", before: "anything is drawn" };
 
+  /** Where the chance will come from, said before every draw; while random.org is being asked, says so. */
+  const chanceNote =
+    tool?.kind === "pendulum" ? null : (
+      <Muted accessibilityLiveRegion="polite">
+        {busy && settings.randomSource === "random.org"
+          ? "Asking random.org for numbers…"
+          : settings.randomSource === "random.org"
+            ? "Chance comes from random.org. You can change this in Me, under Practice."
+            : `Chance comes from ${THIS_DEVICE}'s own random numbers. You can change this in Me, under Practice.`}
+      </Muted>
+    );
+
   async function draw(sensed: { guess: string; skipped: boolean; sealedAt?: string } | null) {
     if (busy) return;
     if (tool?.kind === "pendulum" && pending === undefined) {
@@ -101,31 +115,40 @@ export default function NewReading() {
     }
     setBusy(true);
     try {
-      let made: { spreadId: string | null; spreadName: string | null; pieces: ReturnType<typeof drawForSpread> };
+      type Made = { spreadId: string | null; spreadName: string | null; pieces: ReturnType<typeof drawForSpread> };
+      let made: Made;
+      let randomSource: RandomUsed | null = null;
+      let problem: string | null = null;
       if (tool?.kind === "pendulum") {
+        // Nothing is left to chance: the person notes how their pendulum swung.
         const sw = SWINGS.find((x) => x.id === swingId)!;
         made = { spreadId: null, spreadName: null, pieces: [{ position: 0, positionName: "How it swung", pieceId: sw.id, pieceName: sw.name, reversed: false }] };
-      } else if (tool?.kind === "lots") {
-        made = { spreadId: null, spreadName: null, pieces: drawLots(lots, count, secureRandom) };
-        await db.runAsync("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [LAST_LOTS, lots.join("\n")]);
-      } else if (tool?.kind === "throw") {
-        made = { spreadId: null, spreadName: null, pieces: throwDice(object, count, secureRandom) };
-      } else if (tool?.kind === "iching") {
-        made = castIChing(method, secureRandom);
-      } else if (tool?.kind === "geomancy") {
-        made = castGeomancy(secureRandom);
       } else {
-        const pieces = deck
-          ? drawPieces(
-              deck.cards.map((c) => ({ id: String(c.id), name: c.name })),
-              spread,
-              secureRandom,
-              deck.deck.reversals,
-            )
-          : tool
-            ? drawTool(tool, spread, secureRandom, settings!.reversals)
-            : drawForSpread(spread, secureRandom, settings!.reversals);
-        made = { spreadId: spread.id, spreadName: spread.name, pieces };
+        // Every other tool goes through the source of chance chosen in Settings (random.org unless changed).
+        const run = (rng: Rng): Made => {
+          if (tool?.kind === "lots") return { spreadId: null, spreadName: null, pieces: drawLots(lots, count, rng) };
+          if (tool?.kind === "throw") return { spreadId: null, spreadName: null, pieces: throwDice(object, count, rng) };
+          if (tool?.kind === "iching") return castIChing(method, rng);
+          if (tool?.kind === "geomancy") return castGeomancy(rng);
+          const pieces = deck
+            ? drawPieces(
+                deck.cards.map((c) => ({ id: String(c.id), name: c.name })),
+                spread,
+                rng,
+                deck.deck.reversals,
+              )
+            : tool
+              ? drawTool(tool, spread, rng, settings!.reversals)
+              : drawForSpread(spread, rng, settings!.reversals);
+          return { spreadId: spread.id, spreadName: spread.name, pieces };
+        };
+        const drawn = await drawWithSetting(settings!.randomSource, run);
+        made = drawn.result;
+        randomSource = drawn.used;
+        problem = drawn.problem;
+        if (tool?.kind === "lots") {
+          await db.runAsync("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [LAST_LOTS, lots.join("\n")]);
+        }
       }
       const id = await createReading(db, {
         tool: deck ? ORACLE_TOOL : (tool?.id ?? "tarot"),
@@ -134,10 +157,12 @@ export default function NewReading() {
         spreadName: made.spreadName,
         deckId: deck?.deck.id ?? null,
         pieces: made.pieces,
+        randomSource,
         sensed: sensed && { ...sensed, confidence: sensed.skipped ? null : confidence, sealedAt: sensed.sealedAt ?? new Date().toISOString() },
       });
       // The pendulum's answer is already known to the person, so nothing is turned face down.
-      router.replace({ pathname: "/reading/[id]", params: { id: String(id), reveal: tool?.kind === "pendulum" ? "0" : "1" } });
+      // A problem with random.org is shown on the reading itself (the reading keeps where its chance came from).
+      router.replace({ pathname: "/reading/[id]", params: { id: String(id), reveal: tool?.kind === "pendulum" ? "0" : "1", ...(problem ? { chanceProblem: problem } : {}) } });
     } catch (e) {
       setError(`The reading could not be saved: ${(e as Error).message}`);
       setBusy(false);
@@ -224,6 +249,7 @@ export default function NewReading() {
           <Muted>Ask your question, then hold your pendulum still and let it move. You note how it swung; the app does not decide.</Muted>
         )}
         {tool?.kind === "geomancy" && <Muted>Sixteen lines of one or two dots, made by chance, become the four Mothers. The rest of the chart is worked out from them.</Muted>}
+        {!settings.senseFirst && chanceNote}
         {settings.senseFirst ? (
           <Button
             label="Next"
@@ -285,6 +311,7 @@ export default function NewReading() {
         onChange={setConfidence}
         allowNone
       />
+      {chanceNote}
       <Button
         label={verb.seal}
         onPress={() => {

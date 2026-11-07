@@ -132,14 +132,24 @@ test("changing a meaning keeps the old words in its history; emptying it deletes
 test("settings start from the defaults and keep what is set", async () => {
   const db = await fresh();
   const reminders = { lookBackReminders: true, backupReminders: true };
-  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy", ...reminders });
+  assert.deepEqual(await getSettings(db), { lock: false, senseFirst: true, reversals: true, lastBackupAt: null, photoMode: "copy", ...reminders, randomSource: "random.org" });
   await setSetting(db, "lock", true);
   await setSetting(db, "senseFirst", false);
   await setSetting(db, "lastBackupAt", "2026-11-05T10:00:00Z");
   await setSetting(db, "backupReminders", false);
+  await setSetting(db, "randomSource", "device");
   assert.deepEqual(await getSettings(db), {
     lock: true, senseFirst: false, reversals: true, lastBackupAt: "2026-11-05T10:00:00Z", photoMode: "copy", lookBackReminders: true, backupReminders: false,
+    randomSource: "device",
   });
+});
+
+test("a reading keeps where its chance came from", async () => {
+  const db = await fresh();
+  const plain = await createReading(db, tarot());
+  const fell = await createReading(db, { ...tarot(), randomSource: "device-fallback" });
+  assert.equal((await getReading(db, plain))!.reading.random_source, null);
+  assert.equal((await getReading(db, fell))!.reading.random_source, "device-fallback");
 });
 
 test("a backup restores to exactly the same data", async () => {
