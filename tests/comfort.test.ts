@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_COMFORT, gapFor, isSideways, lessMotion, parseComfort, swipeTarget, textLook } from "../src/core/comfort";
+import { DEFAULT_COMFORT, exitWordFits, gapFor, isSideways, lessMotion, parseComfort, swipeTarget, textLook } from "../src/core/comfort";
 import { defaultChoice, lookBackState, pickerGroups, readingTitle, type LookBackRow } from "../src/core/look-back";
 import { memoryDb } from "./node-db";
 import { addJournalEntry, createReading, getTextSetting, listJournal, migrate, setTextSetting, updateJournalEntry } from "../src/db/queries";
@@ -86,4 +86,12 @@ test("the journal: entries about a reading, and the person's own, newest first, 
   await restoreBackup(other, backup);
   assert.equal((await listJournal(other, null))[0].body, "just my day");
   assert.equal(parseComfort(await getTextSetting(other, "comfort")).font, "atkinson", "the comfort choices come back with a backup");
+});
+
+test("exit button: the word is shown only when it fits, and the ✕ alone until sizes are known", () => {
+  assert.equal(exitWordFits(null, 40, 26), false);
+  assert.equal(exitWordFits(120, null, 26), false);
+  assert.equal(exitWordFits(120, 40, 26), true);
+  assert.equal(exitWordFits(66, 40, 26), true);
+  assert.equal(exitWordFits(65, 40, 26), false);
 });

@@ -146,3 +146,13 @@ export function swipeTarget(from: TabName, dx: number, dy: number, vx = 0): TabN
   const i = TAB_ORDER.indexOf(from) + (dx < 0 ? 1 : -1);
   return i >= 0 && i < TAB_ORDER.length ? TAB_ORDER[i] : null;
 }
+
+// ── The Exit button's word ───────────────────────────────────────────────────────────────────────────
+
+/** Whether the word "Exit" fits beside the ✕ in the room the top bar leaves for the button. The ✕ alone is shown until
+ * both sizes are known, and whenever the whole label (with the button's padding and border) would not fit, so a
+ * narrow phone or large text never squeezes the middle of the bar. */
+export function exitWordFits(room: number | null, labelWidth: number | null, padding: number): boolean {
+  if (room == null || labelWidth == null) return false;
+  return labelWidth + padding <= room;
+}
