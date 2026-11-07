@@ -1,5 +1,5 @@
-// Today: a quick way into a reading, the predictions due, and looking back and the journal for any reading the person
-// chooses (or their own journal, about no reading).
+// Today: one clear way into a reading (today's card), with everything else kept quiet until the person asks for it:
+// a short line for predictions that are due, and looking back and the journal folded away behind one button.
 
 import { useCallback, useEffect, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -11,7 +11,6 @@ import { ON_WEB } from "../../lib/where";
 import { localDay } from "../../core/predictions";
 import { duePredictions, type PredictionListItem } from "../../db/predictions";
 import { CONFIDENCE_LABELS } from "../../core/guess-core";
-import { PredictionCard } from "../../ui/PredictionCard";
 import { Journal } from "../../ui/Journal";
 import { LookBack } from "../../ui/LookBack";
 import { ReadingPicker, readingLine } from "../../ui/ReadingPicker";
@@ -19,6 +18,10 @@ import { Body, Button, Card, Muted, Screen, SectionLabel, Strong, Title } from "
 
 // In a browser, Safari can clear a website's storage after 7 days without a visit, so the reminder comes sooner.
 const BACKUP_DUE_DAYS = ON_WEB ? 7 : 30;
+
+function dueText(n: number): string {
+  return n === 1 ? "1 prediction is ready to look back on." : `${n} predictions are ready to look back on.`;
+}
 
 export default function Today() {
   const db = useSQLiteContext();
@@ -31,6 +34,8 @@ export default function Today() {
   const [chosen, setChosen] = useState<number | null | undefined>(undefined);
   const [chosenData, setChosenData] = useState<FullReading | null>(null);
   const [picking, setPicking] = useState(false);
+  /** Looking back and the journal stay folded away until the person opens them. */
+  const [open, setOpen] = useState(false);
 
   const loadChosen = useCallback(async (id: number | null) => setChosenData(id === null ? null : await getReading(db, id)), [db]);
 
@@ -59,6 +64,7 @@ export default function Today() {
   useEffect(() => {
     if (params.reading) {
       setChosen(Number(params.reading));
+      setOpen(true);
       router.setParams({ reading: undefined });
     }
   }, [params.reading]);
@@ -82,59 +88,66 @@ export default function Today() {
         <Strong>A card for today</Strong>
         <Muted>Write what you sense first, then turn the card over.</Muted>
         <Button label="Draw today's card" onPress={() => router.push({ pathname: "/reading/new", params: { spread: "single", daily: "1" } })} />
-      </Card>
-
-      <Card>
-        <Strong>A reading</Strong>
-        <Muted>Ask a question and choose a spread.</Muted>
-        <Button label="Start a reading" variant="quiet" onPress={() => router.push("/reading/new")} />
+        <Button label="Or start a reading with a question" variant="text" onPress={() => router.push("/reading/new")} />
       </Card>
 
       {due.length > 0 && (
-        <>
-          <SectionLabel>Predictions to look back on</SectionLabel>
-          <Muted>You chose today, or a day before it, to look back on these. Say what happened when you know.</Muted>
-          {due.slice(0, 5).map((p) => (
-            <PredictionCard key={p.id} p={p} today={localDay(new Date())} />
-          ))}
-          {due.length > 5 && <Button label={`See all ${due.length}`} variant="text" onPress={() => router.push("/predictions")} />}
-        </>
+        <Card onPress={() => router.push("/predictions")} accessibilityLabel={`${dueText(due.length)} Open predictions`}>
+          <Body>{dueText(due.length)}</Body>
+          <Muted>Say what happened when you know.</Muted>
+        </Card>
       )}
 
-      <SectionLabel>Look back and journal</SectionLabel>
-      <Card>
-        <Muted>
-          {waiting > 0
-            ? `${waiting} ${waiting === 1 ? "reading is" : "readings are"} ready to look back on. You can choose any reading here, or your own journal.`
-            : "Choose any reading to look back on and write about, or your own journal."}
-        </Muted>
-        {chosen !== undefined && (
-          <>
-            <Strong>{chosenData ? about : "My own journal"}</Strong>
-            {chosenData && <Muted>{listed ? readingLine(listed) : dayText(chosenData.reading.created_at)}</Muted>}
-          </>
-        )}
-        <Button label={chosenData ? "Choose another reading" : "Choose a reading"} variant="quiet" onPress={() => setPicking(true)} />
-        {chosenData && <Button label="Open the reading" variant="text" onPress={() => router.push(`/reading/${chosenData.reading.id}`)} />}
-      </Card>
-
-      {chosenData && sensed && (
-        <Card>
-          <SectionLabel>What you sensed first</SectionLabel>
-          <Body>{sensed.guess}</Body>
+      {!open && (
+        <Card onPress={() => setOpen(true)} accessibilityLabel="Look back and journal" accessibilityHint="Opens looking back and the journal">
+          <Strong>Look back and journal</Strong>
           <Muted>
-            Sealed {dayTimeText(sensed.sealed_at)}
-            {sensed.confidence ? ` · ${CONFIDENCE_LABELS[sensed.confidence]}` : ""}
+            {waiting > 0
+              ? `${waiting} ${waiting === 1 ? "reading is" : "readings are"} ready to look back on.`
+              : "Write about a reading, or in your own journal."}
           </Muted>
         </Card>
       )}
-      {chosenData && sensed && (
-        <LookBack key={`look-back-${chosenData.reading.id}`} readingId={chosenData.reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={() => loadChosen(chosenData.reading.id)} />
+
+      {open && (
+        <>
+          <SectionLabel>Look back and journal</SectionLabel>
+          <Card>
+            <Muted>
+              {waiting > 0
+                ? `${waiting} ${waiting === 1 ? "reading is" : "readings are"} ready to look back on. You can choose any reading here, or your own journal.`
+                : "Choose any reading to look back on and write about, or your own journal."}
+            </Muted>
+            {chosen !== undefined && (
+              <>
+                <Strong>{chosenData ? about : "My own journal"}</Strong>
+                {chosenData && <Muted>{listed ? readingLine(listed) : dayText(chosenData.reading.created_at)}</Muted>}
+              </>
+            )}
+            <Button label={chosenData ? "Choose another reading" : "Choose a reading"} variant="quiet" onPress={() => setPicking(true)} />
+            {chosenData && <Button label="Open the reading" variant="text" onPress={() => router.push(`/reading/${chosenData.reading.id}`)} />}
+          </Card>
+
+          {chosenData && sensed && (
+            <Card>
+              <SectionLabel>What you sensed first</SectionLabel>
+              <Body>{sensed.guess}</Body>
+              <Muted>
+                Sealed {dayTimeText(sensed.sealed_at)}
+                {sensed.confidence ? ` · ${CONFIDENCE_LABELS[sensed.confidence]}` : ""}
+              </Muted>
+            </Card>
+          )}
+          {chosenData && sensed && (
+            <LookBack key={`look-back-${chosenData.reading.id}`} readingId={chosenData.reading.id} fit={sensed.fit} note={sensed.fit_note} onSaved={() => loadChosen(chosenData.reading.id)} />
+          )}
+          {chosenData && !sensed && (
+            <Muted>You did not write what you sensed first for this reading, so there is nothing to look back on. You can still write about it in the journal.</Muted>
+          )}
+          {chosen !== undefined && <Journal key={`journal-${chosen}`} readingId={chosen} about={about} />}
+          <Button label="Fold away" variant="text" onPress={() => setOpen(false)} />
+        </>
       )}
-      {chosenData && !sensed && (
-        <Muted>You did not write what you sensed first for this reading, so there is nothing to look back on. You can still write about it in the journal.</Muted>
-      )}
-      {chosen !== undefined && <Journal key={`journal-${chosen}`} readingId={chosen} about={about} />}
 
       {backupDue && (
         <Card>
