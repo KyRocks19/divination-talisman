@@ -168,6 +168,15 @@ export async function createCard(db: Db, deckId: number, fields: FieldDef[], c: 
   return res.lastInsertRowId;
 }
 
+/** Adds many cards in one go (a batch of photos), in order. Returns their ids. */
+export async function createCards(db: Db, deckId: number, fields: FieldDef[], cards: CardInput[]): Promise<number[]> {
+  const ids: number[] = [];
+  await db.withTransactionAsync(async () => {
+    for (const c of cards) ids.push(await createCard(db, deckId, fields, c));
+  });
+  return ids;
+}
+
 export async function updateCard(db: Db, id: number, fields: FieldDef[], c: CardInput): Promise<void> {
   await db.runAsync("UPDATE oracle_cards SET name = ?, photo_uri = ?, photo_linked = ?, fields = ?, updated_at = ? WHERE id = ?", [
     c.name,
