@@ -72,6 +72,7 @@ function App() {
           <Stack.Screen name="oracle/[deckId]" options={{ title: "Deck" }} />
           <Stack.Screen name="oracle/deck-edit" options={{ title: "Deck" }} />
           <Stack.Screen name="oracle/card" options={{ title: "Card" }} />
+          <Stack.Screen name="oracle/add-many" options={{ title: "Add many cards" }} />
           <Stack.Screen name="predictions" options={{ title: "Predictions" }} />
           <Stack.Screen name="prediction/[id]" options={{ title: "Prediction" }} />
           <Stack.Screen name="tags" options={{ title: "Tags" }} />

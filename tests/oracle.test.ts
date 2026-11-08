@@ -7,9 +7,9 @@ import { MIGRATIONS } from "../src/db/schema";
 import { createReading, getMeanings, listReadings, migrate, patternRows, saveMeaning, PIECE_NAME_SEPARATOR } from "../src/db/queries";
 import { BACKUP_JSON, checkBackup, makeBackup, makeBackupZip, readBackupFile, restoreBackup } from "../src/db/backup";
 import {
-  allCardPhotos, cardsById, createCard, createDeck, deleteCard, deleteDeck, getCard, getDeck, listCards, listDecks, ORACLE_TOOL, updateDeck,
+  allCardPhotos, cardsById, createCard, createCards, createDeck, deleteCard, deleteDeck, getCard, getDeck, listCards, listDecks, ORACLE_TOOL, updateDeck,
 } from "../src/db/oracle";
-import { addField, cleanFieldValues, cleanName, parseFieldDefs, parseFieldValues, renameField } from "../src/core/oracle";
+import { addField, cleanFieldValues, cleanName, numberedNames, parseFieldDefs, parseFieldValues, renameField } from "../src/core/oracle";
 import { drawPieces } from "../src/core/draw";
 import { getSpread } from "../src/core/spreads";
 import { recurringCards } from "../src/core/patterns";
@@ -193,4 +193,30 @@ test("a zip backup holds the data and every picture, and comes back the same; a 
   const plain = readBackupFile(new TextEncoder().encode(JSON.stringify(backup)));
   assert.deepEqual(plain.files, {});
   assert.ok(checkBackup(plain.text).ok);
+});
+
+test("numbered names carry on after the highest Card N, whatever else the deck has", () => {
+  assert.deepEqual(numberedNames([], 3), ["Card 1", "Card 2", "Card 3"]);
+  assert.deepEqual(numberedNames(["Owl", "card 4", "Card 2", "Card 10 fox"], 2), ["Card 5", "Card 6"]);
+  assert.deepEqual(numberedNames(["Card 1"], 0), []);
+});
+
+test("many cards from photos are added in order, each with its picture, and a second batch does not repeat names", async () => {
+  const db = await fresh();
+  const deckId = await createDeck(db, { name: "Shells", description: "", reversals: false, fields });
+  const photos = [
+    { photo: "oracle-photos/1.jpg", linked: false },
+    { photo: "library-asset-2", linked: true },
+    { photo: "oracle-photos/3.jpg", linked: false },
+  ];
+  const names = numberedNames((await listCards(db, deckId)).map((c) => c.name), photos.length);
+  const ids = await createCards(db, deckId, fields, photos.map((p, i) => ({ name: names[i], photo: p.photo, photoLinked: p.linked, values: {} })));
+  assert.equal(ids.length, 3);
+  const cards = await listCards(db, deckId);
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  assert.deepEqual(ids.map((id) => byId.get(id)?.name), ["Card 1", "Card 2", "Card 3"]);
+  assert.deepEqual(ids.map((id) => byId.get(id)?.photo), ["oracle-photos/1.jpg", "library-asset-2", "oracle-photos/3.jpg"]);
+  assert.equal(byId.get(ids[1])?.photoLinked, true);
+  assert.deepEqual(numberedNames(cards.map((c) => c.name), 1), ["Card 4"]);
+  assert.equal((await allCardPhotos(db)).length, 3);
 });
