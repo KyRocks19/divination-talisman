@@ -135,3 +135,8 @@ test("a reading says where its chance came from in plain words", () => {
   assert.equal(randomUsedWords("device", "this browser"), "Chance from this browser's own random numbers");
   assert.match(randomUsedWords("device-fallback"), /because random.org could not be used/);
 });
+
+test("a reading with the person's own cards says so", () => {
+  assert.equal(cleanRandomUsed("own-cards"), "own-cards");
+  assert.equal(randomUsedWords("own-cards"), "Your own cards, shuffled and laid out by you");
+});

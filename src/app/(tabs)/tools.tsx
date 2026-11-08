@@ -53,6 +53,13 @@ export default function Tools() {
           </Muted>
         </Card>
       ))}
+      <Card
+        onPress={() => router.push({ pathname: "/reading/new", params: { own: "1" } })}
+        accessibilityHint="Starts a reading you lay out with your own tarot cards"
+      >
+        <Strong>With your own cards</Strong>
+        <Muted>Shuffle and lay out your own deck, then record each card with a photo or its name.</Muted>
+      </Card>
       {pick === "tarot" && (
         <Card onPress={() => router.push("/library")} accessibilityHint="Opens the 78 cards">
           <Strong>Card library</Strong>

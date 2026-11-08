@@ -1,7 +1,9 @@
 // A new reading: ask, write what you sense first, then the cards are drawn and saved at once and the reading opens
 // face down. Drawing and saving together means going back cannot draw again, and the sensed words are sealed with a
 // time before any card is seen. With ?deck=ID it is a pull from one of the person's own oracle decks; with ?tool=ID
-// it is a reading with one of the other tools (runes, dice, the I Ching and the rest, src/core/tools.ts).
+// it is a reading with one of the other tools (runes, dice, the I Ching and the rest, src/core/tools.ts). With ?own=1
+// the person lays out their own tarot cards: what they sense is sealed before they turn them over, then they record
+// each card (src/ui/OwnCards.tsx) and nothing is drawn by the app.
 
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -19,16 +21,20 @@ import {
 } from "../../core/tools";
 import type { DiceObjectId } from "../../core/tools/dice-data";
 import { Body, Button, Card, ChoiceRow, ErrorNote, Field, Loading, Muted, Screen, Strong, Title } from "../../ui/kit";
+import { OwnCards } from "../../ui/OwnCards";
+import type { DrawnPiece } from "../../core/draw";
 
-type Step = "ask" | "sense" | "swing";
+type Step = "ask" | "sense" | "swing" | "cards";
 
 /** The last list of lots, so the same bag can be drawn from again. Kept with the settings. */
 const LAST_LOTS = "lastLots";
 
 export default function NewReading() {
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ spread?: string; daily?: string; deck?: string; tool?: string }>();
+  const params = useLocalSearchParams<{ spread?: string; daily?: string; deck?: string; tool?: string; own?: string }>();
   const tool = params.tool ? getTool(params.tool) : undefined;
+  /** The person's own tarot cards, laid out by hand. Only for tarot: not with a tool or an oracle deck. */
+  const own = params.own === "1" && !params.tool && !params.deck;
   const daily = params.daily === "1";
   const deckId = params.deck ? Number(params.deck) : null;
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -84,13 +90,16 @@ export default function NewReading() {
             : { words: "Then swing your pendulum and note how it moved" };
   const lots = lotNames(lotsText);
   /** The verb for what happens next: cards and lots are drawn, dice and lines are cast, a pendulum swings. */
-  const verb = tool?.kind === "pendulum" ? { now: "Next", seal: "Seal it, then swing", before: "the pendulum swings" }
+  const verb = own ? { now: "Next", seal: "Seal it, then turn your cards over", before: "you turn your cards over" }
+    : tool?.kind === "pendulum" ? { now: "Next", seal: "Seal it, then swing", before: "the pendulum swings" }
     : tool && tool.kind !== "draw" && tool.kind !== "lots" ? { now: "Cast it", seal: "Seal it and cast", before: "anything is cast" }
       : { now: "Draw", seal: "Seal it and draw", before: "anything is drawn" };
 
   /** Where the chance will come from, said before every draw; while random.org is being asked, says so. */
   const chanceNote =
-    tool?.kind === "pendulum" ? null : (
+    tool?.kind === "pendulum" ? null : own ? (
+      <Muted>Shuffle your own cards and lay them out face down. The app draws nothing; you record the cards you turned over.</Muted>
+    ) : (
       <Muted accessibilityLiveRegion="polite">
         {busy && settings.randomSource === "random.org"
           ? "Asking random.org for numbers…"
@@ -100,8 +109,14 @@ export default function NewReading() {
       </Muted>
     );
 
-  async function draw(sensed: { guess: string; skipped: boolean; sealedAt?: string } | null) {
+  async function draw(sensed: { guess: string; skipped: boolean; sealedAt?: string } | null, ownPieces?: DrawnPiece[]) {
     if (busy) return;
+    if (own && !ownPieces) {
+      // Seal what was sensed now, before the cards are turned over; the reading is saved once they are recorded.
+      setPending(sensed && { ...sensed, sealedAt: new Date().toISOString() });
+      setStep("cards");
+      return;
+    }
     if (tool?.kind === "pendulum" && pending === undefined) {
       // Seal what was sensed now, before the pendulum moves; the reading is saved once the swing is noted.
       setPending(sensed && { ...sensed, sealedAt: new Date().toISOString() });
@@ -119,7 +134,10 @@ export default function NewReading() {
       let made: Made;
       let randomSource: RandomUsed | null = null;
       let problem: string | null = null;
-      if (tool?.kind === "pendulum") {
+      if (own && ownPieces) {
+        made = { spreadId: spread.id, spreadName: spread.name, pieces: ownPieces };
+        randomSource = "own-cards";
+      } else if (tool?.kind === "pendulum") {
         // Nothing is left to chance: the person notes how their pendulum swung.
         const sw = SWINGS.find((x) => x.id === swingId)!;
         made = { spreadId: null, spreadName: null, pieces: [{ position: 0, positionName: "How it swung", pieceId: sw.id, pieceName: sw.name, reversed: false }] };
@@ -160,9 +178,9 @@ export default function NewReading() {
         randomSource,
         sensed: sensed && { ...sensed, confidence: sensed.skipped ? null : confidence, sealedAt: sensed.sealedAt ?? new Date().toISOString() },
       });
-      // The pendulum's answer is already known to the person, so nothing is turned face down.
+      // The pendulum's answer and the person's own cards are already known to them, so nothing is turned face down.
       // A problem with random.org is shown on the reading itself (the reading keeps where its chance came from).
-      router.replace({ pathname: "/reading/[id]", params: { id: String(id), reveal: tool?.kind === "pendulum" ? "0" : "1", ...(problem ? { chanceProblem: problem } : {}) } });
+      router.replace({ pathname: "/reading/[id]", params: { id: String(id), reveal: tool?.kind === "pendulum" || own ? "0" : "1", ...(problem ? { chanceProblem: problem } : {}) } });
     } catch (e) {
       setError(`The reading could not be saved: ${(e as Error).message}`);
       setBusy(false);
@@ -172,7 +190,7 @@ export default function NewReading() {
   if (step === "ask") {
     return (
       <Screen>
-        <Title>{daily ? "Today's card" : deck ? `Pull from ${deck.deck.name}` : tool ? tool.name : "Ask"}</Title>
+        <Title>{daily ? "Today's card" : deck ? `Pull from ${deck.deck.name}` : tool ? tool.name : own ? "A reading with your own cards" : "Ask"}</Title>
         <Field
           label="Your question (you can leave it empty)"
           value={question}
@@ -249,7 +267,7 @@ export default function NewReading() {
           <Muted>Ask your question, then hold your pendulum still and let it move. You note how it swung; the app does not decide.</Muted>
         )}
         {tool?.kind === "geomancy" && <Muted>Sixteen lines of one or two dots, made by chance, become the four Mothers. The rest of the chart is worked out from them.</Muted>}
-        {!settings.senseFirst && chanceNote}
+        {(!settings.senseFirst || own) && chanceNote}
         {settings.senseFirst ? (
           <Button
             label="Next"
@@ -261,6 +279,20 @@ export default function NewReading() {
         ) : (
           <Button label={verb.now} onPress={() => draw(null)} disabled={busy} />
         )}
+        {error && <ErrorNote>{error}</ErrorNote>}
+      </Screen>
+    );
+  }
+
+  if (step === "cards") {
+    return (
+      <Screen>
+        <OwnCards
+          spread={spread}
+          sensed={pending && !pending.skipped ? pending.guess : null}
+          busy={busy}
+          onDone={(pieces) => draw(pending ?? null, pieces)}
+        />
         {error && <ErrorNote>{error}</ErrorNote>}
       </Screen>
     );

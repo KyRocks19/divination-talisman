@@ -10,8 +10,11 @@ import type { Rng } from "./draw";
 
 /** What the person chose in Settings. */
 export type RandomSetting = "random.org" | "device";
-/** What a reading was actually made with. "device-fallback": random.org was chosen but could not be used. */
-export type RandomUsed = "random.org" | "device" | "device-fallback";
+/**
+ * What a reading was actually made with. "device-fallback": random.org was chosen but could not be used.
+ * "own-cards": the person shuffled and laid out their own cards, and recorded them in the app.
+ */
+export type RandomUsed = "random.org" | "device" | "device-fallback" | "own-cards";
 
 export const DEFAULT_RANDOM_SETTING: RandomSetting = "random.org";
 export const RANDOM_SETTINGS: RandomSetting[] = ["random.org", "device"];
@@ -36,13 +39,14 @@ export function cleanRandomSetting(value: string | null | undefined): RandomSett
 
 /** Takes a saved reading value and gives a known one, or null for readings made before this was kept. */
 export function cleanRandomUsed(value: string | null | undefined): RandomUsed | null {
-  return value === "random.org" || value === "device" || value === "device-fallback" ? value : null;
+  return value === "random.org" || value === "device" || value === "device-fallback" || value === "own-cards" ? value : null;
 }
 
 /** Plain words for a reading: where its chance came from. */
 export function randomUsedWords(used: RandomUsed, deviceWord = "this phone"): string {
   if (used === "random.org") return "Chance from random.org";
   if (used === "device") return `Chance from ${deviceWord}'s own random numbers`;
+  if (used === "own-cards") return "Your own cards, shuffled and laid out by you";
   return `Chance from ${deviceWord}'s own random numbers, because random.org could not be used`;
 }
 
