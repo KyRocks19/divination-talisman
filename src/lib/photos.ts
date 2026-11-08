@@ -103,6 +103,45 @@ export async function pickPhoto(source: "camera" | "library", mode: "copy" | "li
   return { ok: true, ref: { photo: copyIntoApp(asset.uri), linked: false } };
 }
 
+export type PickedMany = { ok: true; refs: PhotoRef[]; copied: number } | { ok: false; error?: string };
+
+/**
+ * Picks many photos from the library at once, in the order they were tapped, and keeps each the way the setting says.
+ * `copied` counts the ones that were meant to be linked but had to be copied instead.
+ */
+export async function pickPhotos(mode: "copy" | "link"): Promise<PickedMany> {
+  if (mode === "link") {
+    const perm = await requestPermissionsAsync(false, ["photo"]);
+    if (!perm.granted) mode = "copy";
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    quality: 0.8,
+    allowsEditing: false,
+    allowsMultipleSelection: true,
+    selectionLimit: 0,
+    orderedSelection: true,
+  });
+  if (result.canceled || !result.assets?.length) return { ok: false };
+  const refs: PhotoRef[] = [];
+  let copied = 0;
+  for (const asset of result.assets) {
+    if (mode === "link" && asset.assetId) {
+      refs.push({ photo: asset.assetId, linked: true });
+      continue;
+    }
+    if (mode === "link") copied++;
+    try {
+      refs.push({ photo: copyIntoApp(asset.uri), linked: false });
+    } catch {
+      // All or nothing: copies already made for this batch are deleted again.
+      for (const r of refs) deletePhoto(r);
+      return { ok: false, error: "A photo could not be copied into the app. Nothing was added." };
+    }
+  }
+  return { ok: true, refs, copied };
+}
+
 const linkedUris = new Map<string, string | null>();
 
 /** A URI an image can be shown from, or null when the picture is gone. Library links are looked up once and remembered. */

@@ -69,3 +69,16 @@ export function cleanFieldValues(defs: FieldDef[], values: Record<string, string
   }
   return out;
 }
+
+/**
+ * Names for cards added many at once: "Card 1", "Card 2", ... carrying on after the highest "Card N" the deck already
+ * has, so a second batch does not repeat the first. The person renames them afterwards.
+ */
+export function numberedNames(existing: string[], count: number): string[] {
+  let highest = 0;
+  for (const n of existing) {
+    const m = /^card (\d+)$/i.exec(n.trim());
+    if (m) highest = Math.max(highest, Number(m[1]));
+  }
+  return Array.from({ length: Math.max(0, count) }, (_, i) => `Card ${highest + i + 1}`);
+}

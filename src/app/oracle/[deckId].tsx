@@ -59,6 +59,7 @@ export default function DeckScreen() {
         <Button label="Add a card" variant="quiet" style={{ flex: 1 }} onPress={() => router.push({ pathname: "/oracle/card", params: { deck: String(deck.id) } })} />
         <Button label="Change deck" variant="quiet" style={{ flex: 1 }} onPress={() => router.push({ pathname: "/oracle/deck-edit", params: { id: String(deck.id) } })} />
       </View>
+      <Button label="Add many cards from photos" variant="quiet" onPress={() => router.push({ pathname: "/oracle/add-many", params: { deck: String(deck.id) } })} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
         {cards.map((c) => (
           <Pressable
